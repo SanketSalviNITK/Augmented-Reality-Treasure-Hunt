@@ -352,6 +352,7 @@
   border: 2px solid var(--accent-violet);
   box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.5);
   cursor: move;
+  touch-action: none;
 }
 
 .crop-handle {

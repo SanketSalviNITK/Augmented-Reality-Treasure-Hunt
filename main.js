@@ -7,28 +7,118 @@ import { $, $$, sections, showPanel } from './js/utils.js';
 import { initCrop, setupCropperEvents } from './js/cropper.js';
 import { startAR, stopAR } from './js/ar-engine.js';
 
+import * as THREE from 'three';
+
 // ─── Initialization ──────────────────────────────────────────
 setupCropperEvents();
+initWelcomeAnimation();
 
-// ─── Admin Login ─────────────────────────────────────────────
+// ─── Login Toggles ─────────────────────────────────────────────
+let isPlayerMode = false;
+
 $('#btn-admin-toggle').addEventListener('click', () => {
   state.isAdmin = !state.isAdmin;
+  isPlayerMode = false;
+  
   $('#btn-admin-toggle').classList.toggle('active', state.isAdmin);
+  $('#btn-player-toggle').classList.remove('active');
+  
   $('#login-form').style.display = state.isAdmin ? 'block' : 'none';
-  $('#welcome-title').textContent = state.isAdmin ? 'Hunt Creator' : 'AR Treasure Hunt';
-  $('#btn-start').textContent = state.isAdmin ? 'Admin Login' : 'Create New Hunt';
+  $('#player-login-form').style.display = 'none';
+  
+  $('#welcome-info').style.display = (state.isAdmin || isPlayerMode) ? 'none' : 'block';
+  $('#welcome-title').textContent = state.isAdmin ? 'Hunt Creator Studio' : 'AR Treasure Hunt';
 });
 
-$('#btn-start').addEventListener('click', () => {
-  if (state.isAdmin) {
-    if ($('#admin-pass').value === ADMIN_PASSWORD) showPanel(sections.adminCount);
-    else $('#login-error').style.display = 'block';
+$('#btn-player-toggle').addEventListener('click', () => {
+  isPlayerMode = !isPlayerMode;
+  state.isAdmin = false;
+  
+  $('#btn-player-toggle').classList.toggle('active', isPlayerMode);
+  $('#btn-admin-toggle').classList.remove('active');
+  
+  $('#player-login-form').style.display = isPlayerMode ? 'block' : 'none';
+  $('#login-form').style.display = 'none';
+  
+  $('#welcome-info').style.display = (state.isAdmin || isPlayerMode) ? 'none' : 'block';
+  $('#welcome-title').textContent = isPlayerMode ? 'Player Login' : 'AR Treasure Hunt';
+});
+
+$('#btn-admin-login').addEventListener('click', () => {
+  if ($('#admin-pass').value === ADMIN_PASSWORD) {
+    showPanel(sections.adminCount);
   } else {
-    state.markerCount = 1;
-    state.eventName = 'Guest Hunt';
-    startMarkerConfig();
+    $('#login-error').style.display = 'block';
   }
 });
+
+$('#btn-player-launch').addEventListener('click', () => {
+  const name = $('#player-name').value.trim();
+  const age = $('#player-age').value.trim();
+  
+  if (!name || !age) {
+    $('#player-error').textContent = 'Please enter Name and Age.';
+    $('#player-error').style.display = 'block';
+    return;
+  }
+  
+  // Prevent player from launching if admin hasn't fully configured at least the first marker
+  const firstMarker = state.markers && state.markers.length > 0 ? state.markers[0] : null;
+  const isMarkerComplete = firstMarker && firstMarker.image && 
+                           ((firstMarker.type === 'model' && firstMarker.modelFile) || 
+                            (firstMarker.type === 'text' && firstMarker.text));
+
+  if (!isMarkerComplete) {
+    $('#player-error').textContent = 'Admin must configure the game first!';
+    $('#player-error').style.display = 'block';
+    return;
+  }
+  
+  $('#player-error').style.display = 'none';
+  state.player = { name, age };
+  startAR();
+});
+
+function initWelcomeAnimation() {
+  const container = $('#welcome-3d-container');
+  if (!container) return;
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+  camera.position.z = 4;
+
+  const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  renderer.setSize(220, 220);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  container.appendChild(renderer.domElement);
+
+  const geometry = new THREE.IcosahedronGeometry(1.2, 0);
+  const material = new THREE.MeshPhysicalMaterial({
+    color: 0xa78bfa,
+    metalness: 0.3,
+    roughness: 0.2,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.8
+  });
+  
+  const mesh = new THREE.Mesh(geometry, material);
+  scene.add(mesh);
+
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+  scene.add(ambientLight);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+  dirLight.position.set(5, 5, 5);
+  scene.add(dirLight);
+
+  function animate() {
+    requestAnimationFrame(animate);
+    mesh.rotation.x += 0.005;
+    mesh.rotation.y += 0.01;
+    renderer.render(scene, camera);
+  }
+  animate();
+}
 
 // ─── Event Details ─────────────────────────────────────────────
 $('#event-name').addEventListener('input', (e) => {
@@ -239,7 +329,7 @@ $('#btn-launch-ar').addEventListener('click', startAR);
 $('#btn-stop-ar').addEventListener('click', () => {
   stopAR();
   sections.ar.style.display = 'none'; 
-  sections.setup.style.display = 'block'; 
+  sections.setup.style.display = ''; // Let it fall back to 'flex' defined in CSS
   showPanel(sections.feedback);
 });
 
@@ -249,5 +339,17 @@ $('#btn-submit-feedback').addEventListener('click', () => {
     console.log("Feedback rating:", selected.value);
     selected.checked = false; // Reset for next time
   }
-  showPanel(state.isAdmin ? sections.adminCount : sections.welcome);
+  
+  // Reset admin state and restore welcome UI
+  state.isAdmin = false;
+  isPlayerMode = false;
+  $('#btn-admin-toggle').classList.remove('active');
+  $('#btn-player-toggle').classList.remove('active');
+  $('#login-form').style.display = 'none';
+  $('#player-login-form').style.display = 'none';
+  $('#welcome-info').style.display = 'block';
+  $('#welcome-title').textContent = 'AR Treasure Hunt';
+  
+  // Always return to the welcome landing page
+  showPanel(sections.welcome);
 });

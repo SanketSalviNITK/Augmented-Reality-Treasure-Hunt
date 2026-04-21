@@ -41,11 +41,23 @@ export function updateCropUI() {
   box.style.height = `${(state.cropPos.h / 600) * 100}%`;
 }
 
-// Global window listeners for drag/resize
-window.addEventListener('mousemove', (e) => {
+// Helper for touch/mouse coords
+function getCoords(e) {
+  if (e.touches && e.touches.length > 0) {
+    return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+  }
+  return { clientX: e.clientX, clientY: e.clientY };
+}
+
+function handleMove(e) {
   if (!isDragging && !isResizing) return;
-  const dx = (e.clientX - startX) * (600 / $('#crop-container').clientWidth);
-  const dy = (e.clientY - startY) * (600 / $('#crop-container').clientWidth);
+  
+  // Prevent scrolling while cropping on touch
+  if (e.cancelable) e.preventDefault();
+  
+  const coords = getCoords(e);
+  const dx = (coords.clientX - startX) * (600 / $('#crop-container').clientWidth);
+  const dy = (coords.clientY - startY) * (600 / $('#crop-container').clientWidth);
   
   if (isDragging) {
     state.cropPos.x = Math.max(0, Math.min(600 - state.cropPos.w, startPos.x + dx));
@@ -64,20 +76,37 @@ window.addEventListener('mousemove', (e) => {
     }
   }
   updateCropUI();
-});
+}
 
-window.addEventListener('mouseup', () => { isDragging = isResizing = false; });
+function handleEnd() {
+  isDragging = isResizing = false;
+}
+
+// Global window listeners for drag/resize
+window.addEventListener('mousemove', handleMove, { passive: false });
+window.addEventListener('touchmove', handleMove, { passive: false });
+window.addEventListener('mouseup', handleEnd);
+window.addEventListener('touchend', handleEnd);
 
 // Initialize interaction
 export function setupCropperEvents() {
-  $('#crop-box').addEventListener('mousedown', (e) => {
+  function handleStart(e) {
     if (e.target.classList.contains('crop-handle')) { 
       isResizing = true; 
       currentHandle = e.target.classList[1]; 
     } else { 
       isDragging = true; 
     }
-    startX = e.clientX; startY = e.clientY; startPos = { ...state.cropPos };
-    e.preventDefault();
-  });
+    const coords = getCoords(e);
+    startX = coords.clientX; 
+    startY = coords.clientY; 
+    startPos = { ...state.cropPos };
+    
+    // Prevent default to avoid selection/scrolling on some devices,
+    // but only if it's cancelable
+    if (e.cancelable) e.preventDefault();
+  }
+
+  $('#crop-box').addEventListener('mousedown', handleStart);
+  $('#crop-box').addEventListener('touchstart', handleStart, { passive: false });
 }

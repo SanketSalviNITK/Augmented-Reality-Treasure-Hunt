@@ -48,6 +48,10 @@
         <span>AR Treasure Hunt</span>
       </div>
       <div class="header-actions">
+        <button id="btn-player-toggle" class="btn btn-ghost btn-sm">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Player
+        </button>
         <button id="btn-admin-toggle" class="btn btn-ghost btn-sm">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           Game Admin
@@ -58,21 +62,38 @@
     <main id="wizard">
       <!-- ========== STEP 0: Admin Login / Welcome ========== -->
       <section id="step-0" class="step-panel active">
-        <div class="step-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-        </div>
-        <h2 id="welcome-title">AR Treasure Hunt</h2>
-        <p class="step-desc">Create hidden AR messages and models for your players to find.</p>
+        <!-- 3D Animation Container -->
+        <div id="welcome-3d-container" style="width: 220px; height: 220px; margin: 0 auto 16px auto; position: relative;"></div>
         
-        <div id="login-form" style="display:none;">
+        <h2 id="welcome-title">AR Treasure Hunt</h2>
+        
+        <div id="welcome-info" style="display: flex; flex-direction: column; align-items: center;">
+          <p class="step-desc" style="max-width: 480px; margin-bottom: 12px; line-height: 1.6;">
+            Welcome to the ultimate Augmented Reality experience! This immersive platform blends digital wonders into the real world. Search for physical markers and watch them come to life with hidden 3D models and secret messages.
+          </p>
+          <p class="step-desc" style="font-weight: 600; color: var(--accent-cyan);">
+            Ready to explore? Ask your game admin for the markers!
+          </p>
+        </div>
+        
+        <div id="login-form" style="display:none; width: 100%; max-width: 300px; margin: 24px auto 0 auto;">
           <input type="password" id="admin-pass" placeholder="Admin Access Code" class="form-input" />
-          <p id="login-error" style="color:var(--accent-rose); font-size:0.8rem; margin-top:8px; display:none;">Incorrect code</p>
+          <p id="login-error" style="color:var(--accent-rose); font-size:0.8rem; margin-top:8px; margin-bottom:16px; display:none;">Incorrect code</p>
+          <button id="btn-admin-login" class="btn btn-primary btn-lg" style="width: 100%;">
+            Admin Login
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
         </div>
 
-        <button id="btn-start" class="btn btn-primary btn-lg">
-          Create New Hunt
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-        </button>
+        <div id="player-login-form" style="display:none; width: 100%; max-width: 300px; margin: 24px auto 0 auto;">
+          <input type="text" id="player-name" placeholder="Player Name" class="form-input" style="margin-bottom: 12px;" />
+          <input type="number" id="player-age" placeholder="Age" class="form-input" style="margin-bottom: 16px;" />
+          <p id="player-error" style="color:var(--accent-rose); font-size:0.8rem; margin-top:0; margin-bottom:16px; display:none;">Admin must configure the game first!</p>
+          <button id="btn-player-launch" class="btn btn-launch btn-lg" style="width: 100%;">
+            Launch Game
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </button>
+        </div>
       </section>
 
       <!-- ========== STEP: Hunt Details (Admin Dashboard) ========== -->

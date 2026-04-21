@@ -75,7 +75,10 @@ async function initARSession() {
 }
 
 export function stopAR() {
-  if (state.mindarThree) state.mindarThree.stop();
+  if (state.mindarThree) {
+    state.mindarThree.stop();
+    state.mindarThree = null;
+  }
   
   // Release all camera tracks
   document.querySelectorAll('video').forEach(v => { 
@@ -84,4 +87,7 @@ export function stopAR() {
       v.srcObject = null; 
     } 
   });
+  
+  // Fully remove AR injected elements from the DOM
+  $('#ar-container').innerHTML = '';
 }
