@@ -18,6 +18,16 @@ export const sections = {
 export function showPanel(panel) {
   $$('.step-panel').forEach(p => p.classList.remove('active'));
   panel.classList.add('active');
+  
+  // Manage wizard width for better balance
+  const wizard = $('#wizard');
+  if (wizard) {
+    if (panel === sections.config || panel === sections.review) {
+      wizard.classList.add('wide');
+    } else {
+      wizard.classList.remove('wide');
+    }
+  }
 }
 
 export function roundRect(ctx, x, y, w, h, r, f) {

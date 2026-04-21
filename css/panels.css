@@ -41,10 +41,17 @@
 #wizard {
   position: relative;
   z-index: 10;
-  width: 100%; max-width: 520px;
+  width: 100%;
+  max-width: 640px; /* Increased from 520px for better balance */
   padding: 100px 24px 48px;
-  display: flex; flex-direction: column;
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  transition: max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#wizard.wide {
+  max-width: 900px; /* Even wider for complex configuration steps */
 }
 
 #step-indicators {
@@ -140,24 +147,63 @@
   width: 100%;
   background: var(--bg-glass);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 24px;
-  margin-bottom: 16px;
+  border-radius: var(--radius-lg); /* More rounded for premium feel */
+  padding: 32px; /* Increased padding */
+  margin-bottom: 24px;
   text-align: left;
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+.config-section:hover {
+  border-color: var(--border-active);
 }
 
 .config-section h3 {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent-violet);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 16px;
+  letter-spacing: 0.1em;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.config-section h3::before {
+  content: "";
+  width: 4px;
+  height: 4px;
+  background: var(--accent-violet);
+  border-radius: 50%;
+}
+
+#step-marker-config {
+  width: 100%;
+}
+
+.marker-config-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  width: 100%;
+  margin-top: 12px;
+}
+
+@media (max-width: 800px) {
+  .marker-config-grid {
+    grid-template-columns: 1fr;
+  }
+  #wizard.wide {
+    max-width: 520px;
+  }
 }
 
 #marker-input-container {
   width: 100%;
-  aspect-ratio: 4/3;
+  aspect-ratio: 1/1; /* Made square for better balance in grid */
   background: var(--bg-card);
   border: 1px dashed var(--border-subtle);
   border-radius: var(--radius-md);
@@ -310,8 +356,15 @@
 .crop-handle.br { bottom: -10px; right: -10px; cursor: nwse-resize; }
 
 .marker-iteration-badge {
-  background: var(--gradient-main);
-  color: #fff; padding: 6px 16px;
-  border-radius: 100px; font-size: 0.75rem;
-  font-weight: 700; margin-bottom: 24px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  color: var(--accent-violet);
+  padding: 8px 20px;
+  border-radius: 100px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 32px;
+  backdrop-filter: blur(5px);
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
