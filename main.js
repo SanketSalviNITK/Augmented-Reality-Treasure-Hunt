@@ -128,20 +128,39 @@ $('#btn-open-camera').addEventListener('click', async () => {
 $('#btn-capture').addEventListener('click', () => {
   const video = $('#camera-feed');
   const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  canvas.width = video.videoWidth; 
+  canvas.height = video.videoHeight;
   canvas.getContext('2d').drawImage(video, 0, 0);
+  
   const img = new Image();
   img.src = canvas.toDataURL('image/png');
   img.onload = () => {
-    if (state.cameraStream) state.cameraStream.getTracks().forEach(t => t.stop());
+    // Stop camera
+    if (state.cameraStream) {
+      state.cameraStream.getTracks().forEach(t => t.stop());
+      state.cameraStream = null;
+    }
+    
+    // Switch to crop view
     initCrop(img, (croppedUrl) => {
       const m = state.markers[state.currentMarkerIndex];
       m.dataUrl = croppedUrl;
       const croppedImg = new Image();
       croppedImg.src = croppedUrl;
-      croppedImg.onload = () => { m.image = croppedImg; updateMarkerStep(); showPanel(sections.config); };
+      croppedImg.onload = () => { 
+        m.image = croppedImg; 
+        updateMarkerStep(); 
+        showPanel(sections.config); 
+      };
     });
   };
+});
+
+// Helper for recapture
+$('#btn-cancel-crop').addEventListener('click', () => {
+  showPanel(sections.config);
+  // If we came from camera, maybe we want to reopen it
+  // For now, just going back is fine as they can click "Camera" again
 });
 
 $$('.toggle-btn').forEach(btn => btn.addEventListener('click', () => {
