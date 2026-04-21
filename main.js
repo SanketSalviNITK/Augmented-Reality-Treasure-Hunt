@@ -8,6 +8,7 @@ import { initCrop, setupCropperEvents } from './js/cropper.js';
 import { startAR, stopAR } from './js/ar-engine.js';
 
 import * as THREE from 'three';
+import { saveEventToDB, getEventsFromDB, deleteEventFromDB, updateEventInDB } from './js/db.js';
 
 // ─── Initialization ──────────────────────────────────────────
 setupCropperEvents();
@@ -44,15 +45,29 @@ $('#btn-player-toggle').addEventListener('click', () => {
   $('#welcome-title').textContent = isPlayerMode ? 'Player Login' : 'AR Treasure Hunt';
 });
 
-$('#btn-admin-login').addEventListener('click', () => {
+$('#btn-admin-login').addEventListener('click', async () => {
   if ($('#admin-pass').value === ADMIN_PASSWORD) {
-    showPanel(sections.adminCount);
+    // Show spinner if we wanted, but fetching should be quick
+    $('#btn-admin-login').innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;border-top-color:#fff;margin:0 auto;"></div>';
+    state.events = await getEventsFromDB();
+    $('#btn-admin-login').innerHTML = 'Admin Login';
+    renderAdminDashboard();
+    showPanel(sections.adminDashboard);
   } else {
     $('#login-error').style.display = 'block';
   }
 });
 
-$('#btn-player-launch').addEventListener('click', () => {
+$('#btn-create-event').addEventListener('click', () => {
+  state.eventName = '';
+  state.markerCount = 1;
+  $('#event-name').value = '';
+  $('#marker-count').value = 1;
+  $('#btn-confirm-count').disabled = true;
+  showPanel(sections.adminCount);
+});
+
+$('#btn-player-login').addEventListener('click', async () => {
   const name = $('#player-name').value.trim();
   const age = $('#player-age').value.trim();
   
@@ -62,22 +77,110 @@ $('#btn-player-launch').addEventListener('click', () => {
     return;
   }
   
-  // Prevent player from launching if admin hasn't fully configured at least the first marker
-  const firstMarker = state.markers && state.markers.length > 0 ? state.markers[0] : null;
-  const isMarkerComplete = firstMarker && firstMarker.image && 
-                           ((firstMarker.type === 'model' && firstMarker.modelFile) || 
-                            (firstMarker.type === 'text' && firstMarker.text));
-
-  if (!isMarkerComplete) {
-    $('#player-error').textContent = 'Admin must configure the game first!';
+  $('#btn-player-login').innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;border-top-color:#fff;margin:0 auto;"></div>';
+  state.events = await getEventsFromDB();
+  $('#btn-player-login').innerHTML = 'Login';
+  
+  
+  if (!state.events || state.events.length === 0) {
+    $('#player-error').textContent = 'No active games found. Admin must create one!';
     $('#player-error').style.display = 'block';
     return;
   }
   
   $('#player-error').style.display = 'none';
   state.player = { name, age };
-  startAR();
+  renderPlayerDashboard();
+  showPanel(sections.playerDashboard);
 });
+
+$('#btn-player-back').addEventListener('click', () => {
+  showPanel(sections.welcome);
+});
+
+// ─── Dashboards ──────────────────────────────────────────────
+function renderAdminDashboard() {
+  const list = $('#admin-event-list');
+  list.innerHTML = '';
+  
+  if (state.events.length === 0) {
+    list.innerHTML = '<p style="color:var(--text-secondary); text-align:center; font-size:0.85rem; padding: 20px;">No events created yet.</p>';
+    return;
+  }
+  
+  state.events.forEach((ev, index) => {
+    let playersHtml = 'No players yet';
+    if (ev.players && ev.players.length > 0) {
+      playersHtml = ev.players.map(p => {
+        const markersStr = (p.detectedMarkers && p.detectedMarkers.length > 0) 
+                           ? `[${p.detectedMarkers.join(', ')}]` 
+                           : 'None';
+        return `&bull; ${p.name} <span style="opacity:0.75; font-size: 0.7rem;">(Found: ${markersStr})</span>`;
+      }).join('<br>');
+    }
+
+    const card = document.createElement('div');
+    card.className = 'review-item';
+    card.innerHTML = `
+      <div class="review-info" style="flex: 1;">
+        <h4>${ev.name}</h4>
+        <p>${ev.markers.length} markers configured</p>
+        <div style="margin-top: 8px; font-size: 0.75rem; color: var(--accent-cyan); font-weight: 500; line-height: 1.4;">
+          <strong>Players:</strong><br>
+          ${playersHtml}
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="window.deleteEvent(${index})">Delete</button>
+    `;
+    list.appendChild(card);
+  });
+}
+
+window.deleteEvent = async (index) => {
+  const ev = state.events[index];
+  if (ev.id) await deleteEventFromDB(ev.id);
+  state.events.splice(index, 1);
+  renderAdminDashboard();
+};
+
+function renderPlayerDashboard() {
+  const list = $('#player-event-list');
+  list.innerHTML = '';
+  $('#player-greeting').textContent = `Welcome, ${state.player.name}!`;
+  
+  state.events.forEach((ev, index) => {
+    const card = document.createElement('div');
+    card.className = 'review-item';
+    card.innerHTML = `
+      <div class="review-info">
+        <h4>${ev.name}</h4>
+        <p>Treasure Hunt</p>
+      </div>
+      <button class="btn btn-launch btn-sm" onclick="window.joinEvent(${index})">Join</button>
+    `;
+    list.appendChild(card);
+  });
+}
+
+window.joinEvent = async (index) => {
+  const ev = state.events[index];
+  
+  if (!ev.players) ev.players = [];
+  let playerRecord = ev.players.find(p => p.name === state.player.name);
+  if (!playerRecord) {
+    playerRecord = { name: state.player.name, age: state.player.age, detectedMarkers: [] };
+    ev.players.push(playerRecord);
+    // Sync join to DB
+    if (ev.id) await updateEventInDB(ev.id, ev);
+  }
+  
+  state.activePlayerRecord = playerRecord;
+  state.activeEventId = ev.id;
+  
+  state.eventName = ev.name;
+  state.markers = ev.markers;
+  startAR();
+};
 
 function initWelcomeAnimation() {
   const container = $('#welcome-3d-container');
@@ -324,13 +427,62 @@ function renderReview() {
 }
 
 $('#btn-back-review').addEventListener('click', () => showPanel(sections.config));
-$('#btn-launch-ar').addEventListener('click', startAR);
+
+$('#btn-test-ar').addEventListener('click', startAR);
 
 $('#btn-stop-ar').addEventListener('click', () => {
   stopAR();
   sections.ar.style.display = 'none'; 
-  sections.setup.style.display = ''; // Let it fall back to 'flex' defined in CSS
-  showPanel(sections.feedback);
+  sections.setup.style.display = ''; 
+  
+  if (state.isAdmin) {
+    // If admin is just testing and exits, go back to review so they can edit or save
+    showPanel(sections.review);
+  } else {
+    // Players go to feedback
+    showPanel(sections.feedback);
+  }
+});
+
+$('#btn-ar-save').addEventListener('click', async () => {
+  $('#btn-ar-save').textContent = 'Saving...';
+  
+  try {
+    // Save the event to DB (uploads files)
+    const savedData = await saveEventToDB(state.eventName, state.markers);
+    if (savedData) {
+      state.events.unshift({
+        id: savedData.id,
+        ...savedData.data
+      });
+    } else {
+      alert("Failed to save to database. Ensure RLS is disabled on the 'events' table.");
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Upload failed! Please ensure your 'ar-assets' bucket has an RLS policy allowing INSERTs.");
+  }
+  
+  $('#btn-ar-save').textContent = 'Save Event';
+  
+  stopAR();
+  sections.ar.style.display = 'none'; 
+  sections.setup.style.display = ''; 
+  
+  renderAdminDashboard();
+  showPanel(sections.adminDashboard);
+});
+
+$('#btn-admin-logout').addEventListener('click', () => {
+  state.isAdmin = false;
+  isPlayerMode = false;
+  $('#btn-admin-toggle').classList.remove('active');
+  $('#btn-player-toggle').classList.remove('active');
+  $('#login-form').style.display = 'none';
+  $('#player-login-form').style.display = 'none';
+  $('#welcome-info').style.display = 'block';
+  $('#welcome-title').textContent = 'AR Treasure Hunt';
+  showPanel(sections.welcome);
 });
 
 $('#btn-submit-feedback').addEventListener('click', () => {

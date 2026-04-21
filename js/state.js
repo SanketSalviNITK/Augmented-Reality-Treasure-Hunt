@@ -8,6 +8,8 @@ export const state = {
   markerCount: 1,
   currentMarkerIndex: 0,
   markers: [],
+  events: [], // Stores saved events
+  
   
   // Cropping
   rawImage: null,
@@ -18,6 +20,8 @@ export const state = {
   cameraStream: null,
   compiledBlobUrl: null,
   mixers: [],
+  activePlayerRecord: null,
+  activeEventId: null
 };
 
 export const ADMIN_PASSWORD = 'admin';

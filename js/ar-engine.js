@@ -15,7 +15,19 @@ export async function startAR() {
   
   try {
     const compiler = new Compiler();
-    await compiler.compileImageTargets(state.markers.map(m => m.image), (p) => {
+    
+    // Load images dynamically from URLs for compilation
+    const imageElements = await Promise.all(state.markers.map(m => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous'; 
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = m.imageUrl || m.dataUrl;
+      });
+    }));
+
+    await compiler.compileImageTargets(imageElements, (p) => {
       $('#compile-progress').style.width = `${p * 100}%`;
     });
     const buffer = await compiler.exportData();
@@ -25,6 +37,7 @@ export async function startAR() {
     sections.setup.style.display = 'none';
     sections.ar.style.display = 'block';
     $('#ar-event-name').textContent = state.eventName;
+    $('#btn-ar-save').style.display = state.isAdmin ? 'block' : 'none';
     
     await initARSession();
   } catch (err) { 
@@ -60,6 +73,25 @@ async function initARSession() {
     anchor.onTargetFound = () => { 
       $('#tracking-badge').classList.add('found'); 
       $('#tracking-label').textContent = 'Detected'; 
+      
+      // Track the sequence of detected markers for the active player
+      if (state.activePlayerRecord && !state.isAdmin) {
+        if (!state.activePlayerRecord.detectedMarkers) {
+          state.activePlayerRecord.detectedMarkers = [];
+        }
+        const markerNumber = i + 1; // 1-indexed for readability
+        if (!state.activePlayerRecord.detectedMarkers.includes(markerNumber)) {
+          state.activePlayerRecord.detectedMarkers.push(markerNumber);
+          
+          // Sync with database
+          if (state.activeEventId) {
+            import('./db.js').then(({ updateEventInDB }) => {
+              const ev = state.events.find(e => e.id === state.activeEventId);
+              if (ev) updateEventInDB(state.activeEventId, ev); 
+            }).catch(err => console.error("DB sync failed", err));
+          }
+        }
+      }
     };
     anchor.onTargetLost = () => { 
       $('#tracking-badge').classList.remove('found'); 

@@ -8,6 +8,8 @@ export const $$ = (s) => document.querySelectorAll(s);
 export const sections = {
   welcome: $('#step-0'),
   adminCount: $('#step-admin-count'),
+  adminDashboard: $('#step-admin-dashboard'),
+  playerDashboard: $('#step-player-dashboard'),
   config: $('#step-marker-config'),
   crop: $('#step-crop'),
   review: $('#step-review'),
