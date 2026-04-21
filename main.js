@@ -240,5 +240,14 @@ $('#btn-stop-ar').addEventListener('click', () => {
   stopAR();
   sections.ar.style.display = 'none'; 
   sections.setup.style.display = 'block'; 
+  showPanel(sections.feedback);
+});
+
+$('#btn-submit-feedback').addEventListener('click', () => {
+  const selected = document.querySelector('input[name="experience"]:checked');
+  if (selected) {
+    console.log("Feedback rating:", selected.value);
+    selected.checked = false; // Reset for next time
+  }
   showPanel(state.isAdmin ? sections.adminCount : sections.welcome);
 });

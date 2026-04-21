@@ -224,3 +224,94 @@
   border-color: #fff;
   transform: scale(1.1);
 }
+
+/* ============================================================
+   Likert Scale (Feedback Panel)
+   ============================================================ */
+
+.likert-container {
+  margin-top: 24px;
+  margin-bottom: 32px;
+  width: 100%;
+}
+
+.likert-scale {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  width: 100%;
+  padding: 0 10px 24px 10px; /* Added bottom padding to accommodate absolute labels */
+}
+
+.likert-scale::before {
+  content: "";
+  position: absolute;
+  top: 24px; /* Center with the circular markers */
+  left: 30px;
+  right: 30px;
+  height: 2px;
+  background: var(--border-subtle);
+  z-index: 0;
+}
+
+.likert-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  z-index: 1;
+  cursor: pointer;
+  flex: 1;
+}
+
+.likert-option input[type="radio"] {
+  display: none;
+}
+
+.likert-marker {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 2px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.likert-option:hover .likert-marker {
+  border-color: var(--accent-violet);
+  color: var(--text-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(167, 139, 250, 0.2);
+}
+
+.likert-option input[type="radio"]:checked + .likert-marker {
+  background: var(--gradient-main);
+  border-color: transparent;
+  color: #fff;
+  transform: scale(1.1);
+  box-shadow: 0 0 20px rgba(167, 139, 250, 0.4);
+}
+
+.likert-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: color 0.3s ease;
+  position: absolute;
+  top: 56px;
+  white-space: nowrap;
+}
+
+.likert-option input[type="radio"]:checked ~ .likert-label {
+  color: var(--accent-violet);
+}

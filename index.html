@@ -29,7 +29,7 @@
   </script>
 </head>
 <body>
-  <div id="app-container">
+  <div id="setup-screen">
     <canvas id="particle-canvas"></canvas>
 
     <header id="app-header">
@@ -204,6 +204,47 @@
           <button id="btn-back-review" class="btn btn-ghost">Edit</button>
           <button id="btn-launch-ar" class="btn btn-launch">Launch AR</button>
         </div>
+      </section>
+
+      <!-- ========== STEP: Feedback ========== -->
+      <section id="step-feedback" class="step-panel">
+        <div class="step-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>
+        </div>
+        <h2>How was your experience?</h2>
+        <p class="step-desc">Please rate your AR Treasure Hunt experience.</p>
+        
+        <div class="likert-container config-section">
+          <div class="likert-scale">
+            <label class="likert-option">
+              <input type="radio" name="experience" value="1">
+              <span class="likert-marker">1</span>
+              <span class="likert-label">Poor</span>
+            </label>
+            <label class="likert-option">
+              <input type="radio" name="experience" value="2">
+              <span class="likert-marker">2</span>
+            </label>
+            <label class="likert-option">
+              <input type="radio" name="experience" value="3">
+              <span class="likert-marker">3</span>
+              <span class="likert-label">Average</span>
+            </label>
+            <label class="likert-option">
+              <input type="radio" name="experience" value="4">
+              <span class="likert-marker">4</span>
+            </label>
+            <label class="likert-option">
+              <input type="radio" name="experience" value="5">
+              <span class="likert-marker">5</span>
+              <span class="likert-label">Excellent</span>
+            </label>
+          </div>
+        </div>
+
+        <button id="btn-submit-feedback" class="btn btn-primary btn-lg">
+          Submit Feedback
+        </button>
       </section>
     </main>
 

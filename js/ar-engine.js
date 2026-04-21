@@ -37,7 +37,9 @@ export async function startAR() {
 async function initARSession() {
   state.mindarThree = new MindARThree({ 
     container: $('#ar-container'), 
-    imageTargetSrc: state.compiledBlobUrl 
+    imageTargetSrc: state.compiledBlobUrl,
+    uiScanning: "no",
+    uiLoading: "no"
   });
   
   const { renderer, scene, camera } = state.mindarThree;

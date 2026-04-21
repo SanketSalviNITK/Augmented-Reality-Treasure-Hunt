@@ -11,6 +11,7 @@ export const sections = {
   config: $('#step-marker-config'),
   crop: $('#step-crop'),
   review: $('#step-review'),
+  feedback: $('#step-feedback'),
   ar: $('#ar-screen'),
   setup: $('#setup-screen')
 };
