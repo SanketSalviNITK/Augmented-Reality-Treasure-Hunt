@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>AR Treasure Hunt — Creation Studio</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Modular Styles -->
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/panels.css" />
+  <link rel="stylesheet" href="css/ar.css" />
+  
+  <!-- Import Map for Three.js Addons -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+        "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js",
+        "mindar-image": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app-container">
+    <canvas id="particle-canvas"></canvas>
+
+    <header id="app-header">
+      <div class="logo">
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+          <path d="M18 4L4 10L18 16L32 10L18 4Z" stroke="url(#logo-grad)" stroke-width="2.5" fill="none"/>
+          <path d="M4 10V26L18 32V16L4 10Z" stroke="url(#logo-grad)" stroke-width="2.5" fill="none"/>
+          <path d="M32 10V26L18 32V16L32 10Z" stroke="url(#logo-grad)" stroke-width="2.5" fill="none"/>
+          <defs>
+            <linearGradient id="logo-grad" x1="0" y1="0" x2="36" y2="36">
+              <stop offset="0%" stop-color="#fbbf24"/>
+              <stop offset="100%" stop-color="#f59e0b"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span>AR Treasure Hunt</span>
+      </div>
+      <div class="header-actions">
+        <button id="btn-admin-toggle" class="btn btn-ghost btn-sm">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Game Admin
+        </button>
+      </div>
+    </header>
+
+    <main id="wizard">
+      <!-- ========== STEP 0: Admin Login / Welcome ========== -->
+      <section id="step-0" class="step-panel active">
+        <div class="step-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </div>
+        <h2 id="welcome-title">AR Treasure Hunt</h2>
+        <p class="step-desc">Create hidden AR messages and models for your players to find.</p>
+        
+        <div id="login-form" style="display:none;">
+          <input type="password" id="admin-pass" placeholder="Admin Access Code" class="form-input" />
+          <p id="login-error" style="color:var(--accent-rose); font-size:0.8rem; margin-top:8px; display:none;">Incorrect code</p>
+        </div>
+
+        <button id="btn-start" class="btn btn-primary btn-lg">
+          Create New Hunt
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </section>
+
+      <!-- ========== STEP: Hunt Details (Admin Dashboard) ========== -->
+      <section id="step-admin-count" class="step-panel">
+        <div class="step-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </div>
+        <h2>Hunt Details</h2>
+        <p class="step-desc">Set the stage for your treasure hunt.</p>
+        
+        <div class="config-section">
+          <h3>Event Name</h3>
+          <input type="text" id="event-name" placeholder="e.g. Birthday Quest 2024" class="form-input" />
+        </div>
+
+        <div class="config-section">
+          <h3>Number of Clues (Markers)</h3>
+          <div class="counter-input">
+            <button class="btn-count" id="btn-count-minus">-</button>
+            <input type="number" id="marker-count" value="1" min="1" max="10" readonly />
+            <button class="btn-count" id="btn-count-plus">+</button>
+          </div>
+        </div>
+
+        <button id="btn-confirm-count" class="btn btn-next" disabled>
+          Continue
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </section>
+
+      <!-- ========== STEP 1: Marker Setup Loop ========== -->
+      <section id="step-marker-config" class="step-panel">
+        <div class="marker-iteration-badge">Marker <span id="current-marker-num">1</span> of <span id="total-marker-num">1</span></div>
+        
+        <!-- Unified Marker Input Area -->
+        <div class="config-section">
+          <h3>1. Set Marker Image</h3>
+          <div id="marker-input-container">
+            <div id="marker-placeholder">
+              <svg width="48" height="48" viewBox="0 0 64 64" fill="none" opacity="0.3"><rect x="4" y="4" width="56" height="56" rx="12" stroke="currentColor" stroke-width="2" stroke-dasharray="6 4"/></svg>
+              <span>No image selected</span>
+            </div>
+            <img id="marker-preview-img" src="" alt="Marker preview" style="display:none;" />
+            <div id="camera-capture-area" style="display:none;">
+              <video id="camera-feed" autoplay playsinline muted></video>
+              <button id="btn-capture" class="btn btn-accent btn-sm">Capture</button>
+            </div>
+          </div>
+
+          <div class="btn-row sm">
+            <button id="btn-open-camera" class="btn btn-secondary btn-sm">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              Camera
+            </button>
+            <label class="btn btn-secondary btn-sm">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Upload 
+              <input type="file" id="marker-file-input" accept="image/*" hidden />
+            </label>
+          </div>
+        </div>
+
+        <!-- Overlay type selector -->
+        <div class="config-section">
+          <h3>2. Choose Overlay</h3>
+          <div class="toggle-group">
+            <button class="toggle-btn active" data-type="model">3D Model</button>
+            <button class="toggle-btn" data-type="text">Text Card</button>
+          </div>
+
+          <div id="config-model-area">
+            <div id="model-drop-zone">
+              <span id="model-status">Drop 3D Model here</span>
+              <input type="file" id="model-file-input" accept=".glb,.gltf,.fbx,.obj,.stl,.dae,.ply" hidden />
+            </div>
+            <div id="scale-control" style="display:none;">
+              <input type="range" id="model-scale" min="0.01" max="3" step="0.01" value="0.5" />
+              <span id="scale-value">0.50</span>
+            </div>
+          </div>
+
+          <div id="config-text-area" style="display:none;">
+            <textarea id="overlay-text" placeholder="Enter your message here..." class="form-input"></textarea>
+            <div class="color-picker">
+              <label>Theme</label>
+              <div class="colors">
+                <div class="color-opt active" data-color="#a78bfa" style="background:#a78bfa"></div>
+                <div class="color-opt" data-color="#06b6d4" style="background:#06b6d4"></div>
+                <div class="color-opt" data-color="#34d399" style="background:#34d399"></div>
+                <div class="color-opt" data-color="#f472b6" style="background:#f472b6"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button id="btn-back-marker" class="btn btn-ghost">Back</button>
+          <button id="btn-next-marker" class="btn btn-next" disabled>Next Marker</button>
+        </div>
+      </section>
+
+      <!-- ========== STEP: Crop Marker ========== -->
+      <section id="step-crop" class="step-panel">
+        <h2>Refine Marker</h2>
+        <p class="step-desc">Drag the corners to frame your marker tightly. Avoid empty space for better tracking.</p>
+        <div id="crop-container">
+          <canvas id="crop-canvas"></canvas>
+          <div id="crop-box">
+            <div class="crop-handle tl"></div>
+            <div class="crop-handle tr"></div>
+            <div class="crop-handle bl"></div>
+            <div class="crop-handle br"></div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button id="btn-cancel-crop" class="btn btn-ghost">Retake</button>
+          <button id="btn-confirm-crop" class="btn btn-primary">Set Marker</button>
+        </div>
+      </section>
+
+      <!-- ========== STEP: Review ========== -->
+      <section id="step-review" class="step-panel">
+        <h2>Review Setup</h2>
+        <p class="step-desc">Check your markers and overlays before launching the AR session.</p>
+        <div id="review-list"></div>
+        <div class="btn-row">
+          <button id="btn-back-review" class="btn btn-ghost">Edit</button>
+          <button id="btn-launch-ar" class="btn btn-launch">Launch AR</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Compilation overlay -->
+    <div id="compile-overlay" style="display:none;">
+      <div class="compile-card">
+        <div class="spinner"></div>
+        <h3>Compiling Marker…</h3>
+        <p id="compile-status">Analyzing image features</p>
+        <div class="progress-bar-track">
+          <div id="compile-progress" class="progress-bar-fill"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== AR VIEW ===================== -->
+  <div id="ar-screen" style="display:none;">
+    <div id="ar-container"></div>
+    <div id="ar-hud">
+      <button id="btn-stop-ar" class="btn btn-hud">Exit AR</button>
+      <div id="tracking-badge">
+        <span id="ar-event-name" style="margin-right: 12px; font-weight: 700; color: #fbbf24;"></span>
+        <span class="dot"></span>
+        <span id="tracking-label">Searching for marker…</span>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
