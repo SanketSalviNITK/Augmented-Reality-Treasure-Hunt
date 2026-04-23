@@ -24,5 +24,5 @@ export const state = {
   activeEventId: null
 };
 
-export const ADMIN_PASSWORD = 'admin';
+export const ADMIN_PASSWORD = 'ARTHunt321';
 export const SUPPORTED_EXTENSIONS = ['.glb', '.gltf', '.fbx', '.obj', '.stl', '.dae', '.ply'];
