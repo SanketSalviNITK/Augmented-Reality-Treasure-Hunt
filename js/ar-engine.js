@@ -8,30 +8,46 @@ import * as THREE from 'three';
 import { state } from './state.js';
 import { $, sections } from './utils.js';
 import { loadModel, createTextCard } from './loaders.js';
+import { launchConfetti } from './confetti.js';
 
 export async function startAR() {
+  console.log("Starting AR Session for event:", state.eventName);
+  console.log("Markers to load:", state.markers.length);
+  
   $('#compile-overlay').style.display = 'flex';
   $('#compile-progress').style.width = '5%';
+  
+  // Clear any leftover state
+  state.mixers = [];
   
   try {
     const compiler = new Compiler();
     
     // Load images dynamically from URLs for compilation
-    const imageElements = await Promise.all(state.markers.map(m => {
+    const imageElements = await Promise.all(state.markers.map((m, i) => {
       return new Promise((resolve, reject) => {
         const img = new Image();
         img.crossOrigin = 'anonymous'; 
-        img.onload = () => resolve(img);
-        img.onerror = reject;
+        img.onload = () => {
+          console.log(`Marker image ${i+1} loaded successfully`);
+          resolve(img);
+        };
+        img.onerror = () => {
+          console.error(`Failed to load marker image ${i+1}:`, m.imageUrl || 'No URL');
+          reject(new Error(`Marker image ${i+1} failed to load`));
+        };
         img.src = m.imageUrl || m.dataUrl;
       });
     }));
 
+    console.log("Starting image target compilation...");
     await compiler.compileImageTargets(imageElements, (p) => {
       $('#compile-progress').style.width = `${p * 100}%`;
     });
+    
     const buffer = await compiler.exportData();
     state.compiledBlobUrl = URL.createObjectURL(new Blob([buffer]));
+    console.log("Compilation complete. Compiled data ready.");
     
     $('#compile-overlay').style.display = 'none';
     sections.setup.style.display = 'none';
@@ -39,15 +55,25 @@ export async function startAR() {
     $('#ar-event-name').textContent = state.eventName;
     $('#btn-ar-save').style.display = state.isAdmin ? 'block' : 'none';
     
+    // Initialize HUD Counter
+    if ($('#total-count')) $('#total-count').textContent = state.markers.length;
+    if ($('#detected-count')) {
+      const initialCount = (state.activePlayerRecord && state.activePlayerRecord.detectedMarkers) 
+        ? state.activePlayerRecord.detectedMarkers.length 
+        : 0;
+      $('#detected-count').textContent = initialCount;
+    }
+    
     await initARSession();
   } catch (err) { 
-    console.error(err);
-    alert('Compiling failed'); 
+    console.error("AR Start Error:", err);
+    alert(`Compiling failed: ${err.message || 'Unknown error'}`); 
     $('#compile-overlay').style.display = 'none'; 
   }
 }
 
 async function initARSession() {
+  console.log("Initializing MindAR Session...");
   state.mindarThree = new MindARThree({ 
     container: $('#ar-container'), 
     imageTargetSrc: state.compiledBlobUrl,
@@ -63,9 +89,22 @@ async function initARSession() {
     const anchor = state.mindarThree.addAnchor(i);
     
     if (m.type === 'model') {
-      const { model, mixer } = await loadModel(m.modelUrl, m.modelFile.name, m.scale);
-      anchor.group.add(model);
-      if (mixer) state.mixers.push({ mixer, clock: new THREE.Clock() });
+      if (!m.modelUrl && !m.modelFile) {
+        console.warn(`Marker ${i+1} is missing a 3D model. Skipping.`);
+        continue;
+      }
+      
+      const modelName = m.modelFileName || (m.modelFile ? m.modelFile.name : 'model.glb');
+      console.log(`Loading 3D model for marker ${i+1}:`, modelName);
+      
+      try {
+        const { model, mixer } = await loadModel(m.modelUrl, modelName, m.scale);
+        anchor.group.add(model);
+        if (mixer) state.mixers.push({ mixer, clock: new THREE.Clock() });
+        console.log(`Model ${i+1} loaded and added to anchor.`);
+      } catch (loadErr) {
+        console.error(`Failed to load model ${i+1}:`, loadErr);
+      }
     } else {
       anchor.group.add(createTextCard(m.text, m.color));
     }
@@ -74,16 +113,32 @@ async function initARSession() {
       $('#tracking-badge').classList.add('found'); 
       $('#tracking-label').textContent = 'Detected'; 
       
-      // Track the sequence of detected markers for the active player
       if (state.activePlayerRecord && !state.isAdmin) {
         if (!state.activePlayerRecord.detectedMarkers) {
           state.activePlayerRecord.detectedMarkers = [];
         }
-        const markerNumber = i + 1; // 1-indexed for readability
+        const markerNumber = i + 1;
         if (!state.activePlayerRecord.detectedMarkers.includes(markerNumber)) {
           state.activePlayerRecord.detectedMarkers.push(markerNumber);
           
-          // Sync with database
+          // Update HUD Counter
+          const currentCount = state.activePlayerRecord.detectedMarkers.length;
+          if ($('#detected-count')) $('#detected-count').textContent = currentCount;
+          
+          console.log(`Progress: ${currentCount} / ${state.markers.length}`);
+
+          // Update Hunter Leaderboard
+          if (window.renderHunterLeaderboard) window.renderHunterLeaderboard();
+
+          // Check for Quest Completion
+          if (currentCount === state.markers.length) {
+            console.log("QUEST COMPLETE! Triggering celebration...");
+            setTimeout(() => {
+              $('#quest-complete-overlay').style.display = 'flex';
+              launchConfetti();
+            }, 1500); 
+          }
+
           if (state.activeEventId) {
             import('./db.js').then(({ updateEventInDB }) => {
               const ev = state.events.find(e => e.id === state.activeEventId);
@@ -99,6 +154,7 @@ async function initARSession() {
     };
   }
   
+  console.log("Starting MindAR Three engine...");
   await state.mindarThree.start();
   renderer.setAnimationLoop(() => {
     state.mixers.forEach(m => m.mixer.update(m.clock.getDelta()));
@@ -112,7 +168,13 @@ export function stopAR() {
     state.mindarThree = null;
   }
   
-  // Release all camera tracks
+  // Clear mixers and clocks
+  state.mixers = [];
+  
+  // Hide overlays
+  $('#quest-complete-overlay').style.display = 'none';
+  $('#quest-finished-status').style.display = 'none';
+  
   document.querySelectorAll('video').forEach(v => { 
     if (v.srcObject) { 
       v.srcObject.getTracks().forEach(t => t.stop()); 
@@ -120,6 +182,5 @@ export function stopAR() {
     } 
   });
   
-  // Fully remove AR injected elements from the DOM
   $('#ar-container').innerHTML = '';
 }

@@ -1,21 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>AR Treasure Hunt — Creation Studio</title>
-  
+
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  
+
   <!-- Modular Styles -->
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/components.css" />
   <link rel="stylesheet" href="css/panels.css" />
   <link rel="stylesheet" href="css/ar.css" />
-  
+  <link rel="stylesheet" href="css/landing.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <!-- Import Map for Three.js Addons -->
   <script type="importmap">
     {
@@ -28,20 +32,100 @@
     }
   </script>
 </head>
+
 <body>
-  <div id="setup-screen">
+  <!-- Initial Loading Screen -->
+  <div id="loading-overlay"
+    style="position: fixed; inset: 0; z-index: 9999; background: #050508; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.8s ease;">
+    <div
+      style="font-size: 1.5rem; font-weight: 800; color: #06b6d4; margin-bottom: 20px; letter-spacing: 4px; text-transform: uppercase;">
+      Initializing AR Systems</div>
+    <div
+      style="width: 300px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; position: relative;">
+      <div id="loading-progress"
+        style="width: 0%; height: 100%; background: linear-gradient(90deg, #d946ef, #06b6d4); transition: width 0.1s linear;">
+      </div>
+    </div>
+    <button id="btn-start-experience" class="btn btn-primary"
+      style="display: none; margin-top: 30px; animation: fadeInUp 0.5s forwards;">Enter System</button>
+  </div>
+
+  <audio id="bg-music" src="assets/bg-music.mp3" loop preload="auto"></audio>
+  <button id="btn-music-toggle" class="btn btn-ghost"
+    style="position:fixed; bottom:20px; right:20px; z-index:9999; border-radius:50%; width:48px; height:48px; padding:0; display:flex; justify-content:center; align-items:center; background:rgba(0,0,0,0.5); backdrop-filter:blur(5px);"
+    title="Toggle Music">
+    <svg id="icon-sound-on" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" style="display:none;">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+    </svg>
+    <svg id="icon-sound-off" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+      <line x1="23" y1="9" x2="17" y2="15"></line>
+      <line x1="17" y1="9" x2="23" y2="15"></line>
+    </svg>
+  </button>
+
+  <!-- Split Screen Landing Page Overlay -->
+  <div id="landing-root" class="zoomed-out">
+    <header class="landing-header">
+      <div class="landing-logo">
+        <svg width="24" height="24" viewBox="0 0 36 36" fill="none" style="margin-right:8px;">
+          <path d="M18 4L4 10L18 16L32 10L18 4Z" stroke="#06b6d4" stroke-width="2.5" fill="none" />
+          <path d="M4 10V26L18 32V16L4 10Z" stroke="#06b6d4" stroke-width="2.5" fill="none" />
+          <path d="M32 10V26L18 32V16L32 10Z" stroke="#06b6d4" stroke-width="2.5" fill="none" />
+        </svg>
+        <span>AR Treasure Hunt</span>
+      </div>
+      <nav class="landing-nav">
+        <a href="#" id="nav-about">About</a>
+        <a href="#" id="nav-how-to-play">How to play</a>
+        <a href="#" id="nav-contact">Contact</a>
+      </nav>
+    </header>
+
+    <div id="canvas-container"></div>
+    <div class="split-container">
+      <div class="landing-panel creator" id="panel-creator">
+        <h1 class="landing-title">Creator</h1>
+        <p class="landing-subtitle">Forge the adventure. Hide the treasures. Master the augmented map.</p>
+        <button class="landing-btn" id="btn-enter-creator">Enter Studio</button>
+      </div>
+      <div class="vs-badge">OR</div>
+      <div class="landing-panel hunter" id="panel-hunter">
+        <h1 class="landing-title">Hunter</h1>
+        <p class="landing-subtitle">Seek the unknown. Solve the mysteries. Claim the digital glory.</p>
+        <button class="landing-btn" id="btn-enter-hunter">Start Quest</button>
+      </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div id="info-modal" class="info-modal hidden">
+      <div class="info-modal-content">
+        <button id="btn-close-modal" class="btn-close-modal">×</button>
+        <h2 id="modal-title">Title</h2>
+        <div id="modal-body" class="modal-body">
+          Content goes here
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="setup-screen" style="display: none; opacity: 0; transition: opacity 0.5s ease;">
     <canvas id="particle-canvas"></canvas>
 
-    <header id="app-header">
+    <!-- Inner Header is hidden since we use landing overlay -->
+    <header id="app-header" style="display: none;">
       <div class="logo">
         <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-          <path d="M18 4L4 10L18 16L32 10L18 4Z" stroke="url(#logo-grad)" stroke-width="2.5" fill="none"/>
-          <path d="M4 10V26L18 32V16L4 10Z" stroke="url(#logo-grad)" stroke-width="2.5" fill="none"/>
-          <path d="M32 10V26L18 32V16L32 10Z" stroke="url(#logo-grad)" stroke-width="2.5" fill="none"/>
+          <path d="M18 4L4 10L18 16L32 10L18 4Z" stroke="url(#logo-grad)" stroke-width="2.5" fill="none" />
+          <path d="M4 10V26L18 32V16L4 10Z" stroke="url(#logo-grad)" stroke-width="2.5" fill="none" />
+          <path d="M32 10V26L18 32V16L32 10Z" stroke="url(#logo-grad)" stroke-width="2.5" fill="none" />
           <defs>
             <linearGradient id="logo-grad" x1="0" y1="0" x2="36" y2="36">
-              <stop offset="0%" stop-color="#fbbf24"/>
-              <stop offset="100%" stop-color="#f59e0b"/>
+              <stop offset="0%" stop-color="#fbbf24" />
+              <stop offset="100%" stop-color="#f59e0b" />
             </linearGradient>
           </defs>
         </svg>
@@ -49,11 +133,16 @@
       </div>
       <div class="header-actions">
         <button id="btn-player-toggle" class="btn btn-ghost btn-sm">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
           Player
         </button>
         <button id="btn-admin-toggle" class="btn btn-ghost btn-sm">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
           Game Admin
         </button>
       </div>
@@ -62,82 +151,214 @@
     <main id="wizard">
       <!-- ========== STEP 0: Admin Login / Welcome ========== -->
       <section id="step-0" class="step-panel active">
+        <!-- Back to Landing Portal -->
+        <button id="btn-back-to-portal" class="btn btn-ghost btn-sm"
+          style="position: absolute; top: 16px; left: 16px; border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 8px; z-index: 10;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+          </svg>
+          Back to Portal
+        </button>
+
         <!-- 3D Animation Container -->
-        <div id="welcome-3d-container" style="width: 220px; height: 220px; margin: 0 auto 16px auto; position: relative;"></div>
-        
+        <div id="welcome-3d-container"
+          style="width: 220px; height: 220px; margin: 0 auto 16px auto; position: relative;"></div>
+
         <h2 id="welcome-title">AR Treasure Hunt</h2>
-        
+
         <div id="welcome-info" style="display: flex; flex-direction: column; align-items: center;">
           <p class="step-desc" style="max-width: 480px; margin-bottom: 12px; line-height: 1.6;">
-            Welcome to the ultimate Augmented Reality experience! This immersive platform blends digital wonders into the real world. Search for physical markers and watch them come to life with hidden 3D models and secret messages.
+            Welcome to the ultimate Augmented Reality experience! This immersive platform blends digital wonders into
+            the real world. Search for physical markers and watch them come to life with hidden 3D models and secret
+            messages.
           </p>
           <p class="step-desc" style="font-weight: 600; color: var(--accent-cyan);">
             Ready to explore? Ask your game admin for the markers!
           </p>
         </div>
-        
+
         <div id="login-form" style="display:none; width: 100%; max-width: 300px; margin: 24px auto 0 auto;">
           <input type="password" id="admin-pass" placeholder="Admin Access Code" class="form-input" />
-          <p id="login-error" style="color:var(--accent-rose); font-size:0.8rem; margin-top:8px; margin-bottom:16px; display:none;">Incorrect code</p>
+          <p id="login-error"
+            style="color:var(--accent-rose); font-size:0.8rem; margin-top:8px; margin-bottom:16px; display:none;">
+            Incorrect code</p>
           <button id="btn-admin-login" class="btn btn-primary btn-lg" style="width: 100%;">
             Admin Login
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
           </button>
         </div>
 
         <div id="player-login-form" style="display:none; width: 100%; max-width: 300px; margin: 24px auto 0 auto;">
-          <input type="text" id="player-name" placeholder="Player Name" class="form-input" style="margin-bottom: 12px;" />
+          <input type="text" id="player-name" placeholder="Player Name" class="form-input"
+            style="margin-bottom: 12px;" />
           <input type="number" id="player-age" placeholder="Age" class="form-input" style="margin-bottom: 16px;" />
-          <p id="player-error" style="color:var(--accent-rose); font-size:0.8rem; margin-top:0; margin-bottom:16px; display:none;">Please enter valid details</p>
+          <p id="player-error"
+            style="color:var(--accent-rose); font-size:0.8rem; margin-top:0; margin-bottom:16px; display:none;">Please
+            enter valid details</p>
           <button id="btn-player-login" class="btn btn-primary btn-lg" style="width: 100%;">
             Login
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
           </button>
         </div>
       </section>
 
       <!-- ========== STEP: Admin Dashboard ========== -->
-      <section id="step-admin-dashboard" class="step-panel">
-        <div class="step-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-        </div>
-        <h2>Admin Dashboard</h2>
-        <p class="step-desc">Manage your AR events.</p>
-        
-        <div id="admin-event-list" style="width: 100%; display: flex; flex-direction: column; gap: 12px; margin: 24px 0; max-height: 300px; overflow-y: auto; padding-right: 8px;">
-          <!-- Event cards injected here -->
+      <section id="step-admin-dashboard" class="step-panel dash-container">
+        <!-- Top Bar -->
+        <div class="dash-topbar">
+          <div style="font-weight: 800; font-size: 1.2rem; display: flex; align-items: center; gap: 8px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            CREATOR STUDIO
+          </div>
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <span class="creator-name" style="color: var(--text-secondary);">Creator</span>
+            <button id="btn-admin-logout" class="btn btn-ghost btn-sm"
+              style="padding: 6px 12px; border: 1px solid rgba(255,255,255,0.1);">Logout</button>
+          </div>
         </div>
 
-        <button id="btn-create-event" class="btn btn-primary btn-lg">
-          Create New Event
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
-        <button id="btn-admin-logout" class="btn btn-ghost" style="margin-top: 16px;">Logout</button>
+        <!-- Main Body -->
+        <div class="dash-body">
+          <!-- Sidebar -->
+          <div class="dash-sidebar">
+            <button class="dash-nav-btn active" data-tab="tab-events">Events</button>
+            <button class="dash-nav-btn" data-tab="tab-analytics">Analytics</button>
+            <button class="dash-nav-btn" data-tab="tab-settings">Settings</button>
+          </div>
+
+          <!-- Content Area -->
+          <div class="dash-content">
+            <!-- Tab: Events -->
+            <div id="tab-events" class="dash-tab active">
+              <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+                <h2 style="margin:0; font-size: 1.8rem; color: white;">Your Events</h2>
+                <button id="btn-create-event" class="btn btn-primary">Create New Event</button>
+              </div>
+
+              <div class="sub-tabs"
+                style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 24px;">
+                <button class="sub-tab-btn active" data-subtab="subtab-active"
+                  style="background:transparent; border:none; color:white; padding:10px 16px; border-bottom: 2px solid var(--primary); cursor:pointer; font-weight:600; font-size: 0.9rem; transition: color 0.2s;">Active
+                  Events</button>
+                <button class="sub-tab-btn" data-subtab="subtab-inactive"
+                  style="background:transparent; border:none; color:var(--text-secondary); padding:10px 16px; border-bottom: 2px solid transparent; cursor:pointer; font-weight:600; font-size: 0.9rem; transition: color 0.2s;">Inactive
+                  Events</button>
+              </div>
+
+              <div id="subtab-active" class="sub-tab-content active" style="display: block;">
+                <div id="admin-event-list-active"
+                  style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px;"></div>
+              </div>
+
+              <div id="subtab-inactive" class="sub-tab-content" style="display: none;">
+                <div id="admin-event-list-inactive" style="display: flex; flex-direction: column; gap: 12px;"></div>
+              </div>
+            </div>
+
+            <!-- Tab: Analytics -->
+            <div id="tab-analytics" class="dash-tab" style="display: none;">
+              <h2 style="margin: 0 0 24px 0; font-size: 1.8rem; color: white;">Analytics Overview</h2>
+
+              <div class="dash-stat-grid">
+                <div class="stat-card">
+                  <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 8px;">Total Hunters</div>
+                  <div id="stat-hunters" style="font-size: 2rem; font-weight: 800; color: var(--primary);">0</div>
+                </div>
+                <div class="stat-card">
+                  <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 8px;">Overall Engagement
+                  </div>
+                  <div id="stat-time" style="font-size: 2rem; font-weight: 800; color: var(--accent-emerald);">0h</div>
+                </div>
+                <div class="stat-card">
+                  <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 8px;">Avg Feedback</div>
+                  <div id="stat-feedback" style="font-size: 2rem; font-weight: 800; color: var(--accent-cyan);">0.0 / 5
+                  </div>
+                </div>
+              </div>
+
+              <!-- Research Specific Stats -->
+              <div class="dash-stat-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 32px;">
+                <div class="stat-card" style="padding: 12px 16px;">
+                  <div style="color: var(--text-secondary); font-size: 0.75rem; margin-bottom: 4px;">Immersion</div>
+                  <div id="stat-immersion" style="font-size: 1.5rem; font-weight: 800; color: #fff;">0.0</div>
+                </div>
+                <div class="stat-card" style="padding: 12px 16px;">
+                  <div style="color: var(--text-secondary); font-size: 0.75rem; margin-bottom: 4px;">Usability</div>
+                  <div id="stat-usability" style="font-size: 1.5rem; font-weight: 800; color: #fff;">0.0</div>
+                </div>
+                <div class="stat-card" style="padding: 12px 16px;">
+                  <div style="color: var(--text-secondary); font-size: 0.75rem; margin-bottom: 4px;">Engagement</div>
+                  <div id="stat-engagement" style="font-size: 1.5rem; font-weight: 800; color: #fff;">0.0</div>
+                </div>
+                <div class="stat-card" style="padding: 12px 16px;">
+                  <div style="color: var(--text-secondary); font-size: 0.75rem; margin-bottom: 4px;">Stability</div>
+                  <div id="stat-stability" style="font-size: 1.5rem; font-weight: 800; color: #fff;">0.0</div>
+                </div>
+              </div>
+
+              <div
+                style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 20px; height: 300px; width: 100%; box-sizing: border-box;">
+                <canvas id="analyticsChart"></canvas>
+              </div>
+            </div>
+
+            <!-- Tab: Settings -->
+            <div id="tab-settings" class="dash-tab" style="display: none;">
+              <h2 style="margin: 0 0 24px 0; font-size: 1.8rem; color: white;">Settings</h2>
+              <div
+                style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 32px; text-align: center; color: var(--text-secondary);">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  style="margin-bottom: 16px; opacity: 0.5; margin: 0 auto 16px auto;">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                <p>Creator settings are currently disabled in this demo environment.</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- ========== STEP: Player Dashboard ========== -->
       <section id="step-player-dashboard" class="step-panel">
         <div class="step-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="10" r="3"/></svg>
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
         </div>
         <h2 id="player-greeting">Choose an Event</h2>
         <p class="step-desc">Select an active treasure hunt to join.</p>
-        
-        <div id="player-event-list" style="width: 100%; display: flex; flex-direction: column; gap: 12px; margin: 24px 0; max-height: 400px; overflow-y: auto; padding-right: 8px;">
+
+        <div id="player-event-list"
+          style="width: 100%; display: flex; flex-direction: column; gap: 12px; margin: 24px 0; max-height: 400px; overflow-y: auto; padding-right: 8px;">
           <!-- Event cards injected here -->
         </div>
-        
+
         <button id="btn-player-back" class="btn btn-ghost" style="margin-top: 16px;">Logout</button>
       </section>
 
       <!-- ========== STEP: Hunt Details (Admin Dashboard) ========== -->
       <section id="step-admin-count" class="step-panel">
         <div class="step-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
         </div>
         <h2>Hunt Details</h2>
         <p class="step-desc">Set the stage for your treasure hunt.</p>
-        
+
         <div class="config-section">
           <h3>Event Name</h3>
           <input type="text" id="event-name" placeholder="e.g. Birthday Quest 2024" class="form-input" />
@@ -152,23 +373,33 @@
           </div>
         </div>
 
-        <button id="btn-confirm-count" class="btn btn-next" disabled>
-          Continue
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-        </button>
+        <div class="btn-row" style="width: 100%; display: flex; gap: 12px; margin-top: 16px;">
+          <button id="btn-cancel-event" class="btn btn-ghost" style="flex: 1;">Cancel</button>
+          <button id="btn-confirm-count" class="btn btn-next" disabled style="flex: 1;">
+            Continue
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        </div>
       </section>
 
       <!-- ========== STEP 1: Marker Setup Loop ========== -->
       <section id="step-marker-config" class="step-panel">
-        <div class="marker-iteration-badge">Marker <span id="current-marker-num">1</span> of <span id="total-marker-num">1</span></div>
-        
+        <div class="marker-iteration-badge">Marker <span id="current-marker-num">1</span> of <span
+            id="total-marker-num">1</span></div>
+
         <div class="marker-config-grid">
           <!-- Unified Marker Input Area -->
           <div class="config-section">
             <h3>1. Set Marker Image</h3>
             <div id="marker-input-container">
               <div id="marker-placeholder">
-                <svg width="48" height="48" viewBox="0 0 64 64" fill="none" opacity="0.3"><rect x="4" y="4" width="56" height="56" rx="12" stroke="currentColor" stroke-width="2" stroke-dasharray="6 4"/></svg>
+                <svg width="48" height="48" viewBox="0 0 64 64" fill="none" opacity="0.3">
+                  <rect x="4" y="4" width="56" height="56" rx="12" stroke="currentColor" stroke-width="2"
+                    stroke-dasharray="6 4" />
+                </svg>
                 <span>No image selected</span>
               </div>
               <img id="marker-preview-img" src="" alt="Marker preview" style="display:none;" />
@@ -180,12 +411,19 @@
 
             <div class="btn-row sm">
               <button id="btn-open-camera" class="btn btn-secondary btn-sm">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
                 Camera
               </button>
               <label class="btn btn-secondary btn-sm">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Upload 
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                Upload
                 <input type="file" id="marker-file-input" accept="image/*" hidden />
               </label>
             </div>
@@ -225,9 +463,11 @@
           </div>
         </div>
 
-        <div class="btn-row">
-          <button id="btn-back-marker" class="btn btn-ghost">Back</button>
-          <button id="btn-next-marker" class="btn btn-next" disabled>Next Marker</button>
+        <div class="btn-row" style="display: flex; gap: 12px; flex-wrap: wrap;">
+          <button id="btn-cancel-config" class="btn btn-ghost"
+            style="flex: 1; border: 1px solid rgba(255,100,100,0.3); color: #f87171;">Cancel Event</button>
+          <button id="btn-back-marker" class="btn btn-ghost" style="flex: 1;">Back</button>
+          <button id="btn-next-marker" class="btn btn-next" disabled style="flex: 2;">Next Marker</button>
         </div>
       </section>
 
@@ -263,43 +503,67 @@
 
       <!-- ========== STEP: Feedback ========== -->
       <section id="step-feedback" class="step-panel">
-        <div class="step-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>
+        <div class="step-icon" style="margin-bottom: 12px;">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path
+              d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+          </svg>
         </div>
-        <h2>How was your experience?</h2>
-        <p class="step-desc">Please rate your AR Treasure Hunt experience.</p>
-        
-        <div class="likert-container config-section">
-          <div class="likert-scale">
-            <label class="likert-option">
-              <input type="radio" name="experience" value="1">
-              <span class="likert-marker">1</span>
-              <span class="likert-label">Poor</span>
-            </label>
-            <label class="likert-option">
-              <input type="radio" name="experience" value="2">
-              <span class="likert-marker">2</span>
-            </label>
-            <label class="likert-option">
-              <input type="radio" name="experience" value="3">
-              <span class="likert-marker">3</span>
-              <span class="likert-label">Average</span>
-            </label>
-            <label class="likert-option">
-              <input type="radio" name="experience" value="4">
-              <span class="likert-marker">4</span>
-            </label>
-            <label class="likert-option">
-              <input type="radio" name="experience" value="5">
-              <span class="likert-marker">5</span>
-              <span class="likert-label">Excellent</span>
-            </label>
+        <h2 style="margin-bottom: 8px;">Quest Complete!</h2>
+        <p class="step-desc">Help us evaluate this experience for our research.</p>
+
+        <div class="research-form">
+          <div class="question-item" data-question="immersion">
+            <span class="question-text">How real did the 3D models feel in your space?</span>
+            <div class="rating-row">
+              <button class="rating-btn" data-value="1">1</button>
+              <button class="rating-btn" data-value="2">2</button>
+              <button class="rating-btn" data-value="3">3</button>
+              <button class="rating-btn" data-value="4">4</button>
+              <button class="rating-btn" data-value="5">5</button>
+            </div>
+            <div class="rating-labels"><span>Not Real</span><span>Lifelike</span></div>
+          </div>
+
+          <div class="question-item" data-question="usability">
+            <span class="question-text">How easy was it to find and scan the markers?</span>
+            <div class="rating-row">
+              <button class="rating-btn" data-value="1">1</button>
+              <button class="rating-btn" data-value="2">2</button>
+              <button class="rating-btn" data-value="3">3</button>
+              <button class="rating-btn" data-value="4">4</button>
+              <button class="rating-btn" data-value="5">5</button>
+            </div>
+            <div class="rating-labels"><span>Very Difficult</span><span>Very Easy</span></div>
+          </div>
+
+          <div class="question-item" data-question="engagement">
+            <span class="question-text">How fun was the overall treasure hunt quest?</span>
+            <div class="rating-row">
+              <button class="rating-btn" data-value="1">1</button>
+              <button class="rating-btn" data-value="2">2</button>
+              <button class="rating-btn" data-value="3">3</button>
+              <button class="rating-btn" data-value="4">4</button>
+              <button class="rating-btn" data-value="5">5</button>
+            </div>
+            <div class="rating-labels"><span>Boring</span><span>Thrilling</span></div>
+          </div>
+
+          <div class="question-item" data-question="stability">
+            <span class="question-text">How stable was the AR tracking during play?</span>
+            <div class="rating-row">
+              <button class="rating-btn" data-value="1">1</button>
+              <button class="rating-btn" data-value="2">2</button>
+              <button class="rating-btn" data-value="3">3</button>
+              <button class="rating-btn" data-value="4">4</button>
+              <button class="rating-btn" data-value="5">5</button>
+            </div>
+            <div class="rating-labels"><span>Very Shaky</span><span>Rock Solid</span></div>
           </div>
         </div>
 
-        <button id="btn-submit-feedback" class="btn btn-primary btn-lg">
-          Submit Feedback
-        </button>
+        <button id="btn-submit-feedback" class="btn btn-primary"
+          style="margin-top: 12px; width: 100%; max-width: 500px;">Submit Research Data</button>
       </section>
     </main>
 
@@ -319,13 +583,76 @@
   <!-- ===================== AR VIEW ===================== -->
   <div id="ar-screen" style="display:none;">
     <div id="ar-container"></div>
+
+    <!-- Quest Complete Overlay -->
+    <div id="quest-complete-overlay"
+      style="display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; flex-direction: column; justify-content: center; align-items: center; text-align: center; backdrop-filter: blur(8px); animation: fadeIn 0.5s ease;">
+      <div
+        style="background: linear-gradient(135deg, var(--primary), var(--accent-emerald)); padding: 2px; border-radius: 50%; margin-bottom: 24px; box-shadow: 0 0 40px rgba(6,182,212,0.4);">
+        <div
+          style="background: #050508; border-radius: 50%; width: 100px; height: 100px; display: flex; justify-content: center; align-items: center;">
+          <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="var(--accent-emerald)" stroke-width="2.5"
+            style="filter: drop-shadow(0 0 10px var(--accent-emerald));">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+      </div>
+      <h2
+        style="font-size: 2.5rem; font-weight: 800; color: white; margin: 0; letter-spacing: 2px; text-transform: uppercase;">
+        Quest Completed!</h2>
+      <p style="color: var(--text-secondary); margin: 12px 0 32px 0; font-size: 1.1rem; max-width: 300px;">
+        Congratulations! You've successfully found all the hidden treasures.</p>
+
+      <div style="display: flex; gap: 16px; width: 100%; max-width: 340px; padding: 0 20px;">
+        <button id="btn-quest-exit" class="btn btn-primary" style="flex: 1;">Exit Quest</button>
+        <button id="btn-quest-stay" class="btn btn-ghost" style="flex: 1; border: 1px solid rgba(255,255,255,0.2);">Keep
+          Playing</button>
+      </div>
+    </div>
+
+    <!-- Persistent Completion Banner -->
+    <div id="quest-finished-status"
+      style="display: none; position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(16,185,129,0.2); border: 1px solid rgba(16,185,129,0.4); padding: 8px 20px; border-radius: 30px; backdrop-filter: blur(5px); color: #10b981; font-weight: 700; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase; align-items: center; gap: 8px; z-index: 900; pointer-events: none;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+      Event Completed
+    </div>
+
     <div id="ar-hud">
       <div style="display: flex; gap: 12px; pointer-events: auto;">
         <button id="btn-stop-ar" class="btn btn-hud">Exit AR</button>
-        <button id="btn-ar-save" class="btn btn-hud" style="display: none; background: rgba(167,139,250,0.8); border-color: rgba(167,139,250,1);">Save Event</button>
+        <button id="btn-ar-save" class="btn btn-hud"
+          style="display: none; background: rgba(167,139,250,0.8); border-color: rgba(167,139,250,1);">Save
+          Event</button>
       </div>
+
+      <!-- Hunter Leaderboard (Bottom Right) -->
+      <div id="hunter-leaderboard-container" style="position: fixed; bottom: 80px; right: 20px; z-index: 950; display: flex; flex-direction: column; align-items: flex-end; pointer-events: auto;">
+        <button id="btn-toggle-leaderboard" class="btn btn-hud" style="border-radius: 50%; width: 44px; height: 44px; padding: 0; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.1);" title="Leaderboard">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2.5"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55.47.98.97 1.21C11.47 18.44 12 19 12 19s.53-.56 1.03-.79c.5-.23.97-.66.97-1.21v-2.34c0-.28-.13-.54-.35-.71l-1.3-.98a1.2 1.2 0 0 1-.35-.71V9H10v4.25c0 .28-.13.54-.35.71l-1.3.98c-.22.17-.35.43-.35.71z"/><path d="M15 4h-6v5h6V4z"/></svg>
+        </button>
+        
+        <div id="hunter-leaderboard-panel" style="display: none; margin-bottom: 12px; width: 240px; background: rgba(5, 5, 8, 0.85); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; backdrop-filter: blur(10px); overflow: hidden; animation: slideUp 0.3s ease;">
+          <div style="padding: 10px 12px; background: rgba(6, 182, 212, 0.15); border-bottom: 1px solid rgba(6, 182, 212, 0.2); font-size: 0.75rem; font-weight: 800; color: var(--accent-cyan); letter-spacing: 1px; text-transform: uppercase;">
+            Live Standings
+          </div>
+          <div id="hunter-leaderboard-list" style="max-height: 200px; overflow-y: auto; padding: 4px 0;">
+            <!-- Rows injected by JS -->
+          </div>
+        </div>
+      </div>
+
       <div id="tracking-badge">
         <span id="ar-event-name" style="margin-right: 12px; font-weight: 700; color: #fbbf24;"></span>
+        <div id="ar-progress-counter"
+          style="display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.4); padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); margin-right: 12px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="3">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+          <span style="font-size: 0.8rem; font-weight: 700; color: white;"><span id="detected-count">0</span> / <span
+              id="total-count">0</span></span>
+        </div>
         <span class="dot"></span>
         <span id="tracking-label">Searching for marker…</span>
       </div>
@@ -335,4 +662,5 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="module" src="main.js"></script>
 </body>
+
 </html>

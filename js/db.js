@@ -107,3 +107,33 @@ export async function deleteEventFromDB(eventId) {
     
   if (error) console.error('Error deleting event:', error);
 }
+
+export async function saveFeedbackToDB(ratings) {
+  const { data, error } = await supabaseClient
+    .from('feedback')
+    .insert([{ data: ratings }])
+    .select();
+    
+  if (error) {
+    console.error('Database feedback insert error:', error);
+    return null;
+  }
+  return data[0];
+}
+
+export async function getFeedbackFromDB() {
+  const { data, error } = await supabaseClient
+    .from('feedback')
+    .select('*')
+    .order('created_at', { ascending: false });
+    
+  if (error) {
+    console.error('Database feedback fetch error:', error);
+    return [];
+  }
+  
+  return data.map(row => ({
+    id: row.id,
+    ...row.data
+  }));
+}

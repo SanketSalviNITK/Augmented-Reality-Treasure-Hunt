@@ -18,6 +18,11 @@
   text-decoration: none;
 }
 
+.btn:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
 .btn-primary {
   background: var(--gradient-main);
   color: #fff;

@@ -3,29 +3,29 @@
    ============================================================ */
 
 :root {
-  /* Palette */
-  --bg-primary: #0a0a0f;
-  --bg-card: rgba(18, 18, 28, 0.85);
-  --bg-card-hover: rgba(28, 28, 42, 0.95);
-  --bg-glass: rgba(255, 255, 255, 0.04);
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-active: rgba(167, 139, 250, 0.4);
+  /* Palette - Cyberpunk / Chillwave */
+  --bg-primary: #050508;
+  --bg-card: rgba(16, 16, 26, 0.45);
+  --bg-card-hover: rgba(26, 26, 46, 0.65);
+  --bg-glass: rgba(255, 255, 255, 0.02);
+  --border-subtle: rgba(0, 255, 255, 0.1);
+  --border-active: rgba(255, 0, 255, 0.4);
 
-  --text-primary: #f0f0f5;
-  --text-secondary: #8b8ba3;
-  --text-muted: #55556a;
+  --text-primary: #f8f8ff;
+  --text-secondary: #a0a0c0;
+  --text-muted: #5a5a7a;
 
-  --accent-violet: #a78bfa;
+  --accent-violet: #d946ef;
   --accent-cyan: #06b6d4;
-  --accent-emerald: #34d399;
-  --accent-rose: #f472b6;
+  --accent-emerald: #10b981;
+  --accent-rose: #f43f5e;
 
-  --gradient-main: linear-gradient(135deg, #a78bfa 0%, #06b6d4 100%);
-  --gradient-warm: linear-gradient(135deg, #f472b6 0%, #a78bfa 100%);
-  --gradient-launch: linear-gradient(135deg, #34d399 0%, #06b6d4 100%);
+  --gradient-main: linear-gradient(135deg, #d946ef 0%, #06b6d4 100%);
+  --gradient-warm: linear-gradient(135deg, #f43f5e 0%, #d946ef 100%);
+  --gradient-launch: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
 
-  --shadow-glow: 0 0 40px rgba(167, 139, 250, 0.15);
-  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 45px rgba(217, 70, 239, 0.2);
+  --shadow-card: 0 16px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.05);
 
   --radius-sm: 8px;
   --radius-md: 12px;
