@@ -1,6 +1,8 @@
 # AR Treasure Hunt (ARTHunt)
 ### A Holistic Research Platform for Web-Based Augmented Reality
 
+**[🚀 Live Demo / Hunter Portal](https://sanketsalvinitk.github.io/Augmented-Reality-Treasure-Hunt/)**
+
 **ARTHunt** is an open-source, mobile-first platform designed to study user engagement, sustainability, and pedagogical impact in augmented reality environments. Built with **MindAR**, **Three.js**, and **Supabase**, it provides a frictionless "No-App-Download" experience for physical scavenger hunts.
 
 ---
