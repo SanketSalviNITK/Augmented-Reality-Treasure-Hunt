@@ -21,7 +21,8 @@ export const state = {
   compiledBlobUrl: null,
   mixers: [],
   activePlayerRecord: null,
-  activeEventId: null
+  activeEventId: null,
+  audioEnabled: true
 };
 
 export const ADMIN_PASSWORD = 'ARTHunt321';

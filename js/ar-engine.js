@@ -127,12 +127,51 @@ async function initARSession() {
           
           console.log(`Progress: ${currentCount} / ${state.markers.length}`);
 
-          // Update Hunter Leaderboard
+          // Sync to DB immediately for EVERY marker found
+          import('./db.js').then(({ updateEventInDB }) => {
+            const ev = state.events.find(e => e.id === state.activeEventId);
+            if (ev) {
+              const pIdx = ev.players.findIndex(p => p.name === state.activePlayerRecord.name);
+              if (pIdx !== -1) {
+                ev.players[pIdx] = state.activePlayerRecord; // Ensure DB object has latest stats
+                updateEventInDB(ev.id, ev);
+              }
+            }
+          });
+
+          // Play Scan Sound
+          if (state.audioEnabled) {
+            const sfx = document.getElementById('sfx-scan');
+            if (sfx) {
+              sfx.currentTime = 0;
+              sfx.play();
+            }
+          }
+
+          // Update Hunter Leaderboard & Clues
           if (window.renderHunterLeaderboard) window.renderHunterLeaderboard();
+          if (window.updateHUDClue) window.updateHUDClue();
 
           // Check for Quest Completion
           if (currentCount === state.markers.length) {
             console.log("QUEST COMPLETE! Triggering celebration...");
+            
+            // Play Victory Sound
+            if (state.audioEnabled) {
+              const victorySfx = document.getElementById('sfx-victory');
+              if (victorySfx) victorySfx.play();
+            }
+
+            // HCI: Track completion time for leaderboard persistence
+            if (state.activePlayerRecord && !state.activePlayerRecord.endTime) {
+              state.activePlayerRecord.endTime = Date.now();
+              // One final sync for the end time
+              import('./db.js').then(({ updateEventInDB }) => {
+                const ev = state.events.find(e => e.id === state.activeEventId);
+                if (ev) updateEventInDB(ev.id, ev);
+              });
+            }
+
             setTimeout(() => {
               $('#quest-complete-overlay').style.display = 'flex';
               launchConfetti();
@@ -183,4 +222,16 @@ export function stopAR() {
   });
   
   $('#ar-container').innerHTML = '';
+}
+
+export function pauseAR() {
+  if (state.mindarThree) {
+    state.mindarThree.stop();
+  }
+}
+
+export async function resumeAR() {
+  if (state.mindarThree) {
+    await state.mindarThree.start();
+  }
 }

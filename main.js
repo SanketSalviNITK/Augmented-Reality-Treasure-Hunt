@@ -5,7 +5,7 @@
 import { state, ADMIN_PASSWORD } from './js/state.js';
 import { $, $$, sections, showPanel } from './js/utils.js';
 import { initCrop, setupCropperEvents } from './js/cropper.js';
-import { startAR, stopAR } from './js/ar-engine.js';
+import { startAR, stopAR, pauseAR, resumeAR } from './js/ar-engine.js';
 
 import * as THREE from 'three';
 import { saveEventToDB, getEventsFromDB, deleteEventFromDB, updateEventInDB, saveFeedbackToDB, getFeedbackFromDB } from './js/db.js';
@@ -66,8 +66,26 @@ if (sessionStorage.getItem('systemEntered') === 'true') {
   }, 150);
 }
 
+// Audio Prime Helper (HCI: Satisfy Browser Autoplay Policy)
+function primeAudio() {
+  const sounds = ['sfx-scan', 'sfx-victory', 'bg-music'];
+  sounds.forEach(id => {
+    const sfx = document.getElementById(id);
+    if (sfx) {
+      // Play and immediately pause to unlock the audio context
+      sfx.play().then(() => {
+        if (id !== 'bg-music') {
+          sfx.pause();
+          sfx.currentTime = 0;
+        }
+      }).catch(e => console.log(`Audio priming for ${id} active... waiting for interaction.`));
+    }
+  });
+}
+
 btnStartExp.addEventListener('click', () => {
   sessionStorage.setItem('systemEntered', 'true');
+  primeAudio();
   // Start music
   if (!isMusicPlaying && bgMusic.paused) {
     bgMusic.play().then(() => {
@@ -125,8 +143,14 @@ function transitionFromLanding(role) {
   }, 600);
 }
 
-$('#btn-enter-creator').addEventListener('click', () => transitionFromLanding('creator'));
-$('#btn-enter-hunter').addEventListener('click', () => transitionFromLanding('hunter'));
+$('#btn-enter-creator').addEventListener('click', () => {
+  primeAudio();
+  transitionFromLanding('creator');
+});
+$('#btn-enter-hunter').addEventListener('click', () => {
+  primeAudio();
+  transitionFromLanding('hunter');
+});
 
 $('#btn-back-to-portal').addEventListener('click', () => {
   // Use reload to ensure all state is cleared and we return to the very beginning
@@ -283,6 +307,7 @@ $('#btn-player-back').addEventListener('click', () => {
 
 // ─── Dashboards ──────────────────────────────────────────────
 let analyticsChartInstance = null;
+const expandedEvents = new Set(); // Track expanded card IDs across refreshes
 
 async function renderAdminDashboard() {
   const activeList = $('#admin-event-list-active');
@@ -300,19 +325,20 @@ async function renderAdminDashboard() {
   } else {
     state.events.forEach((ev, index) => {
       let playersHtml = '<p style="color:var(--text-muted); font-size:0.8rem; text-align:center; padding:10px;">No participants yet.</p>';
-      let isActive = ev.status !== 'inactive';
+      const isActive = ev.status !== 'inactive';
       
       if (ev.players && ev.players.length > 0) {
-        isActive = true;
         totalHunters += ev.players.length;
-        activeEventCount++;
+        if (isActive) activeEventCount++;
 
         // Sort players for leaderboard: 1. Most markers, 2. Least time
         const sortedPlayers = [...ev.players].sort((a, b) => {
           if ((b.detectedMarkers?.length || 0) !== (a.detectedMarkers?.length || 0)) {
             return (b.detectedMarkers?.length || 0) - (a.detectedMarkers?.length || 0);
           }
-          return (a.startTime || 0) - (b.startTime || 0); 
+          const timeA = (a.endTime || Date.now()) - (a.startTime || 0);
+          const timeB = (b.endTime || Date.now()) - (b.startTime || 0);
+          return timeA - timeB;
         });
 
         playersHtml = sortedPlayers.map((p, pIdx) => {
@@ -320,22 +346,34 @@ async function renderAdminDashboard() {
           const total = ev.markers ? ev.markers.length : 0;
           const percent = total > 0 ? (count / total) * 100 : 0;
           const score = count * 100;
+          const isFinished = count === total && total > 0;
           
           let timeStr = '---';
           if (p.startTime) {
-            const diff = Date.now() - p.startTime;
+            const finalTime = p.endTime || Date.now();
+            const diff = finalTime - p.startTime;
             const mins = Math.floor(diff / 60000);
             const secs = Math.floor((diff % 60000) / 1000);
             timeStr = `${mins}m ${secs}s`;
           }
 
+          const statusBadge = isFinished 
+            ? `<span style="font-size: 0.65rem; background: rgba(16,185,129,0.2); color: #10b981; padding: 2px 6px; border-radius: 4px; font-weight: 800; border: 1px solid rgba(16,185,129,0.3);">🏆 COMPLETED</span>`
+            : `<span style="font-size: 0.65rem; background: rgba(6,182,212,0.2); color: var(--accent-cyan); padding: 2px 6px; border-radius: 4px; font-weight: 800; border: 1px solid rgba(6,182,212,0.3);">⚡ HUNTING</span>`;
+
+          const avatarUrl = p.avatarId ? `assets/avatar-${p.avatarId}.svg` : 'assets/avatar-1.svg';
+
           return `
             <div class="leaderboard-row" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); gap: 12px;">
               <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
                 <span style="font-weight: 800; color: ${pIdx < 3 ? 'var(--accent-emerald)' : 'var(--text-muted)'}; min-width: 20px;">#${pIdx + 1}</span>
+                <img src="${avatarUrl}" style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.05); padding: 2px;">
                 <div style="flex: 1;">
-                  <div style="font-weight: 600; font-size: 0.9rem; color: white; display: flex; justify-content: space-between;">
-                    <span>${p.name}</span>
+                  <div style="font-weight: 600; font-size: 0.9rem; color: white; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span>${p.name}</span>
+                      ${statusBadge}
+                    </div>
                     <span style="color: var(--accent-cyan); font-size: 0.8rem;">Score: ${score}</span>
                   </div>
                   <div class="progress-mini" style="width: 100%; height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; margin-top: 6px; overflow: hidden;">
@@ -361,26 +399,38 @@ async function renderAdminDashboard() {
       card.style.border = '1px solid var(--border-subtle)';
       card.style.overflow = 'hidden';
 
+      const isExpanded = expandedEvents.has(ev.id || index);
+
       card.innerHTML = `
-        <div class="event-card-header" onclick="window.toggleEventDetails(${index})" style="cursor: pointer; padding: 16px; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;">
+        <div class="event-card-header" onclick="window.toggleEventDetails(${index}, '${ev.id || index}')" style="cursor: pointer; padding: 16px; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;">
           <div>
             <h3 style="margin: 0; font-size: 1.1rem; color: white;">${ev.name}</h3>
             <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: var(--text-secondary);">
-              ${ev.markers ? ev.markers.length : 0} Markers • ${ev.players ? ev.players.length : 0} Participants
+              ${ev.markers ? ev.markers.length : 0} Markers • ${ev.players ? ev.players.length : 0} Participants • <span style="color: ${isActive ? 'var(--accent-emerald)' : '#f87171'};">${isActive ? 'ACTIVE' : 'INACTIVE'}</span>
             </p>
           </div>
           <div style="display: flex; align-items: center; gap: 12px;">
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.exportEventCSV(${index})" style="border: 1px solid var(--accent-cyan); color: var(--accent-cyan); display: flex; align-items: center; gap: 6px;" title="Export Results to CSV">
+               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+               Export
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.toggleEventStatus(${index})" style="border: 1px solid ${isActive ? '#f87171' : 'var(--accent-emerald)'}; color: ${isActive ? '#f87171' : 'var(--accent-emerald)'};" title="${isActive ? 'Archive' : 'Restore'}">
+               ${isActive ? 'Archive' : 'Restore'}
+            </button>
             <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.deleteEvent(${index})" style="border: 1px solid rgba(255,100,100,0.3); color: #f87171;">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
             </button>
-            <svg id="chevron-${index}" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition: transform 0.3s ease;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            <svg id="chevron-${index}" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition: transform 0.3s ease; ${isExpanded ? 'transform: rotate(180deg);' : ''}"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </div>
         </div>
         
-        <div id="event-details-${index}" class="event-details" style="max-height: 0; overflow: hidden; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); background: rgba(0,0,0,0.15); opacity: 0;">
+        <div id="event-details-${index}" class="event-details" style="max-height: ${isExpanded ? '500px' : '0'}; overflow: hidden; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); background: rgba(0,0,0,0.15); opacity: ${isExpanded ? '1' : '0'};">
           <div style="padding: 0 16px 16px 16px;">
-            <div style="margin-bottom: 12px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
-              Live Leaderboard
+            <div style="margin-bottom: 12px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+              <span>Live Leaderboard</span>
+              <button id="btn-creator-sync-${index}" onclick="window.hardRefreshEvent(${index})" style="background:none; border:none; color:var(--accent-cyan); cursor:pointer; display:flex; align-items:center; opacity:0.7; transition: all 0.3s ease;" title="Hard Refresh Standings">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
+              </button>
             </div>
             <div class="leaderboard-container">
               ${playersHtml}
@@ -464,17 +514,21 @@ async function renderAdminDashboard() {
   }
 }
 
-window.toggleEventDetails = (index) => {
+window.toggleEventDetails = (index, eventId) => {
   const details = document.getElementById(`event-details-${index}`);
   const chevron = document.getElementById(`chevron-${index}`);
-  if (details.style.maxHeight === '0px' || !details.style.maxHeight) {
+  const isOpening = details.style.maxHeight === '0px' || !details.style.maxHeight;
+  
+  if (isOpening) {
     details.style.maxHeight = '500px';
     details.style.opacity = '1';
     chevron.style.transform = 'rotate(180deg)';
+    expandedEvents.add(eventId);
   } else {
     details.style.maxHeight = '0px';
     details.style.opacity = '0';
     chevron.style.transform = 'rotate(0deg)';
+    expandedEvents.delete(eventId);
   }
 };
 
@@ -511,6 +565,64 @@ document.querySelectorAll('.sub-tab-btn').forEach(btn => {
   });
 });
 
+window.exportEventCSV = (index) => {
+  const ev = state.events[index];
+  if (!ev.players || ev.players.length === 0) {
+    alert("No hunter data available to export.");
+    return;
+  }
+
+  // Define Headers
+  let csv = "Hunter Name,Age,Markers Found,Total Markers,Start Time,End Time,Total Duration,Score\\n";
+  
+  // Add Rows
+  ev.players.forEach(p => {
+    const count = p.detectedMarkers ? p.detectedMarkers.length : 0;
+    const total = ev.markers ? ev.markers.length : 0;
+    const score = count * 100;
+    
+    let durationStr = "---";
+    if (p.startTime) {
+      const finalTime = p.endTime || Date.now();
+      const diff = finalTime - p.startTime;
+      const mins = Math.floor(diff / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      durationStr = `${mins}m ${secs}s`;
+    }
+
+    const row = [
+      p.name,
+      p.age || 'N/A',
+      count,
+      total,
+      p.startTime ? new Date(p.startTime).toLocaleString() : 'N/A',
+      p.endTime ? new Date(p.endTime).toLocaleString() : 'N/A',
+      durationStr,
+      score
+    ];
+    
+    csv += row.join(',') + "\\n";
+  });
+
+  // Create Download
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", `ARTHunt_Results_${ev.name.replace(/\\s+/g, '_')}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+window.toggleEventStatus = async (index) => {
+  const ev = state.events[index];
+  ev.status = (ev.status === 'inactive') ? 'active' : 'inactive';
+  if (ev.id) await updateEventInDB(ev.id, ev);
+  renderAdminDashboard();
+};
+
 window.deleteEvent = async (index) => {
   const ev = state.events[index];
   if (confirm(`Are you sure you want to permanently delete "${ev.name}"? This action cannot be undone.`)) {
@@ -525,7 +637,17 @@ function renderPlayerDashboard() {
   list.innerHTML = '';
   $('#player-greeting').textContent = `Welcome, ${state.player.name}!`;
   
-  state.events.forEach((ev, index) => {
+  // Only show Active events to hunters
+  const activeEvents = state.events.filter(ev => ev.status !== 'inactive');
+  
+  if (activeEvents.length === 0) {
+    list.innerHTML = '<p style="color:var(--text-secondary); text-align:center; padding: 20px;">No quests available at the moment.</p>';
+    return;
+  }
+
+  activeEvents.forEach((ev) => {
+    // Find index in main state for the join call
+    const originalIndex = state.events.findIndex(e => e.id === ev.id);
     const card = document.createElement('div');
     card.className = 'review-item';
     card.innerHTML = `
@@ -533,7 +655,7 @@ function renderPlayerDashboard() {
         <h4>${ev.name}</h4>
         <p>Treasure Hunt</p>
       </div>
-      <button class="btn btn-launch btn-sm" onclick="window.joinEvent(${index})">Join</button>
+      <button class="btn btn-launch btn-sm" onclick="window.joinEvent(${originalIndex})">Join</button>
     `;
     list.appendChild(card);
   });
@@ -549,13 +671,14 @@ window.joinEvent = async (index) => {
       name: state.player.name, 
       age: state.player.age, 
       detectedMarkers: [],
-      startTime: Date.now() // Track when they started for leaderboard
+      startTime: Date.now(),
+      avatarId: Math.floor(Math.random() * 50) + 1 // Assign random avatar 1-50
     };
     ev.players.push(playerRecord);
     await updateEventInDB(ev.id, ev);
   } else if (!playerRecord.startTime) {
-    // Retroactively add startTime for existing players if missing
     playerRecord.startTime = Date.now();
+    if (!playerRecord.avatarId) playerRecord.avatarId = Math.floor(Math.random() * 50) + 1;
     await updateEventInDB(ev.id, ev);
   }
   
@@ -565,10 +688,90 @@ window.joinEvent = async (index) => {
   state.eventName = ev.name;
   state.markers = ev.markers;
   
+  // Update Hunter HUD Name & Avatar
+  if ($('#ar-player-name')) $('#ar-player-name').textContent = state.player.name;
+  const avatarImg = document.querySelector('#ar-hud .avatar-icon');
+  if (avatarImg && playerRecord.avatarId) {
+    avatarImg.src = `assets/avatar-${playerRecord.avatarId}.svg`;
+  }
+  
   // Initialize and show Hunter Leaderboard
   window.renderHunterLeaderboard();
+  window.updateHUDClue();
   
   startAR();
+};
+
+window.updateHUDClue = () => {
+  const clueCard = $('#ar-clue-card');
+  const clueText = $('#ar-clue-text');
+  const clueNum = $('#ar-clue-num');
+  
+  if (!state.activePlayerRecord || !state.markers) return;
+  
+  const foundCount = state.activePlayerRecord.detectedMarkers ? state.activePlayerRecord.detectedMarkers.length : 0;
+  const total = state.markers.length;
+  
+  if (foundCount >= total) {
+    clueCard.style.opacity = '0';
+    clueCard.style.transform = 'translateX(-50%) translateY(20px)';
+    return;
+  }
+  
+  // The next clue is the one at index 'foundCount'
+  const nextMarker = state.markers[foundCount];
+  clueCard.style.opacity = '1';
+  clueCard.style.transform = 'translateX(-50%) translateY(0)';
+  clueNum.textContent = `Marker ${foundCount + 1} of ${total}`;
+  clueText.textContent = nextMarker.hint ? `"${nextMarker.hint}"` : "Search for the hidden marker!";
+};
+
+// Audio Toggle Logic
+$('#btn-toggle-audio').addEventListener('click', () => {
+  state.audioEnabled = !state.audioEnabled;
+  const onIcon = $('#icon-audio-on');
+  const offIcon = $('#icon-audio-off');
+  
+  if (state.audioEnabled) {
+    onIcon.style.display = 'block';
+    offIcon.style.display = 'none';
+    primeAudio(); // Re-prime on unmute
+  } else {
+    onIcon.style.display = 'none';
+    offIcon.style.display = 'block';
+  }
+});
+
+// Camera Toggle (Power Saver) Logic
+let isCameraPaused = false;
+const toggleCam = async () => {
+  isCameraPaused = !isCameraPaused;
+  const onIcon = $('#icon-cam-on');
+  const offIcon = $('#icon-cam-off');
+  const overlay = $('#power-save-overlay');
+  
+  if (isCameraPaused) {
+    onIcon.style.display = 'none';
+    offIcon.style.display = 'block';
+    overlay.style.display = 'flex';
+    pauseAR();
+  } else {
+    onIcon.style.display = 'block';
+    offIcon.style.display = 'none';
+    overlay.style.display = 'none';
+    await resumeAR();
+  }
+};
+
+$('#btn-toggle-camera').addEventListener('click', toggleCam);
+$('#btn-resume-camera').addEventListener('click', toggleCam);
+
+window.hardRefreshEvent = async (index) => {
+  const btn = document.getElementById(`btn-creator-sync-${index}`);
+  if (btn) btn.style.transform = 'rotate(180deg)';
+  
+  state.events = await getEventsFromDB();
+  renderAdminDashboard();
 };
 
 window.renderHunterLeaderboard = async () => {
@@ -593,27 +796,69 @@ window.renderHunterLeaderboard = async () => {
   list.innerHTML = sortedPlayers.map((p, idx) => {
     const isMe = p.name === state.player.name;
     const count = p.detectedMarkers ? p.detectedMarkers.length : 0;
+    const total = ev.markers ? ev.markers.length : 0;
+    const isFinished = count === total && total > 0;
+    const avatarUrl = p.avatarId ? `assets/avatar-${p.avatarId}.svg` : 'assets/avatar-1.svg';
     
     return `
       <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: ${isMe ? 'rgba(6, 182, 212, 0.1)' : 'transparent'}; border-left: 2px solid ${isMe ? 'var(--accent-cyan)' : 'transparent'};">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="font-size: 0.7rem; font-weight: 800; color: ${idx < 3 ? 'var(--accent-emerald)' : 'var(--text-muted)'};">#${idx + 1}</span>
+          <img src="${avatarUrl}" style="width: 18px; height: 18px; border-radius: 50%; background: rgba(255,255,255,0.1);">
           <span style="font-size: 0.75rem; color: ${isMe ? 'white' : 'var(--text-secondary)'}; font-weight: ${isMe ? '700' : '500'};">
-            ${p.name} ${isMe ? '(YOU)' : ''}
+            ${isFinished ? '🏆 ' : ''}${p.name} ${isMe ? '(YOU)' : ''}
           </span>
         </div>
-        <span style="font-size: 0.75rem; font-weight: 800; color: white;">${count}</span>
+        <span style="font-size: 0.75rem; font-weight: 800; color: ${isFinished ? 'var(--accent-emerald)' : 'white'};">${count}</span>
       </div>
     `;
   }).join('');
 };
 
-// Hunter Leaderboard Toggle
+// Hunter Leaderboard Toggle & Sync
 $('#btn-toggle-leaderboard').addEventListener('click', () => {
   const panel = $('#hunter-leaderboard-panel');
   const isHidden = panel.style.display === 'none' || !panel.style.display;
   panel.style.display = isHidden ? 'block' : 'none';
+  if (isHidden) window.renderHunterLeaderboard(); // Refresh on open
 });
+
+$('#btn-sync-leaderboard').addEventListener('click', async () => {
+  const btn = $('#btn-sync-leaderboard');
+  btn.style.transform = 'rotate(180deg)';
+  btn.style.opacity = '1';
+  
+  // Refresh events from DB
+  state.events = await getEventsFromDB();
+  await window.renderHunterLeaderboard();
+  
+  setTimeout(() => {
+    btn.style.transform = 'rotate(0deg)';
+    btn.style.opacity = '0.7';
+  }, 500);
+});
+
+// Continuous Auto-sync leaderboard every 10 seconds during AR
+setInterval(() => {
+  const isARActive = $('#ar-screen').style.display === 'block';
+  const isAdminActive = $('#setup-screen').style.display === 'block' && state.isAdmin;
+  
+  if (isARActive && state.activeEventId) {
+    getEventsFromDB().then(evs => {
+      state.events = evs;
+      window.renderHunterLeaderboard();
+    });
+  } else if (isAdminActive) {
+    // Only refresh if the 'Active Events' sub-tab is visible
+    const activeEventsTab = document.getElementById('tab-active-events');
+    if (activeEventsTab && activeEventsTab.style.display !== 'none') {
+      getEventsFromDB().then(evs => {
+        state.events = evs;
+        renderAdminDashboard();
+      });
+    }
+  }
+}, 5000);
 
 function initWelcomeAnimation() {
   const container = $('#welcome-3d-container');
@@ -708,6 +953,7 @@ function updateMarkerStep() {
   $('#model-scale').value = m.scale;
   $('#scale-value').textContent = m.scale.toFixed(2);
   $('#overlay-text').value = m.text || '';
+  $('#overlay-hint').value = m.hint || '';
   
   $$('.color-opt').forEach(opt => opt.classList.toggle('active', opt.dataset.color === m.color));
   checkMarkerComplete();
@@ -816,6 +1062,10 @@ $('#overlay-text').addEventListener('input', () => {
   checkMarkerComplete();
 });
 
+$('#overlay-hint').addEventListener('input', () => {
+  state.markers[state.currentMarkerIndex].hint = $('#overlay-hint').value;
+});
+
 $$('.color-opt').forEach(opt => opt.addEventListener('click', () => {
   state.markers[state.currentMarkerIndex].color = opt.dataset.color;
   updateMarkerStep();
@@ -851,7 +1101,8 @@ function renderReview() {
       <img src="${m.dataUrl}" class="review-marker-thumb">
       <div class="review-info">
         <h4>Marker ${i + 1}</h4>
-        <p>${m.type === 'model' ? `Model: ${m.modelFile.name}` : `Msg: ${m.text.substring(0, 20)}...`}</p>
+        <p>${m.type === 'model' ? `Model: ${m.modelFile ? m.modelFile.name : 'N/A'}` : `Msg: ${m.text.substring(0, 20)}...`}</p>
+        <p style="font-size: 0.7rem; color: var(--accent-cyan); margin-top: 4px;">Hint: ${m.hint || 'No hint provided'}</p>
       </div>
       <span class="review-type-badge">${m.type.toUpperCase()}</span>
     `;

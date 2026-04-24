@@ -49,6 +49,7 @@ export async function saveEventToDB(eventName, markers) {
       scale: m.scale,
       color: m.color,
       text: m.text,
+      hint: m.hint, // Sequential riddle text
       imageUrl: imageUrl, 
       modelUrl: modelPublicUrl,
       modelFileName: modelFileName
