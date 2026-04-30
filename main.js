@@ -442,22 +442,27 @@ async function renderAdminDashboard() {
               ${ev.markers ? ev.markers.length : 0} Markers • ${ev.players ? ev.players.length : 0} Participants • <span style="color: ${isActive ? 'var(--accent-emerald)' : '#f87171'};">${isActive ? 'ACTIVE' : 'INACTIVE'}</span>
             </p>
           </div>
-          <div style="display: flex; align-items: center; gap: 12px;">
-            ${isActive ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.openLiveMonitor(${index})" style="border: 1px solid var(--accent-emerald); color: var(--accent-emerald); display: flex; align-items: center; gap: 6px;" title="Live Event Monitor">
-               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"/><rect x="3" y="6" width="12" height="12" rx="2" ry="2"/></svg>
-               Monitor
+          <div class="event-card-actions" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+            ${isActive ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.openLiveMonitor(${index})" style="border: 1px solid var(--accent-emerald); color: var(--accent-emerald); display: flex; align-items: center; gap: 6px; padding: 6px 10px;" title="Live Event Monitor">
+               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"/><rect x="3" y="6" width="12" height="12" rx="2" ry="2"/></svg>
+               <span class="action-text">Monitor</span>
             </button>` : ''}
-            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.exportEventCSV(${index})" style="border: 1px solid var(--accent-cyan); color: var(--accent-cyan); display: flex; align-items: center; gap: 6px;" title="Export Results to CSV">
-               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-               Export
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.exportEventCSV(${index})" style="border: 1px solid var(--accent-cyan); color: var(--accent-cyan); display: flex; align-items: center; gap: 6px; padding: 6px 10px;" title="Export Results to CSV">
+               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+               <span class="action-text">Export</span>
             </button>
-            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.toggleEventStatus(${index})" style="border: 1px solid ${isActive ? '#f87171' : 'var(--accent-emerald)'}; color: ${isActive ? '#f87171' : 'var(--accent-emerald)'};" title="${isActive ? 'Archive' : 'Restore'}">
-               ${isActive ? 'Archive' : 'Restore'}
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.resetEventPlayers(${index})" style="border: 1px solid #f59e0b; color: #f59e0b; display: flex; align-items: center; gap: 6px; padding: 6px 10px;" title="Reset Player Data for New Study">
+               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+               <span class="action-text">Reset</span>
             </button>
-            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.deleteEvent(${index})" style="border: 1px solid rgba(255,100,100,0.3); color: #f87171;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.toggleEventStatus(${index})" style="border: 1px solid ${isActive ? '#f87171' : 'var(--accent-emerald)'}; color: ${isActive ? '#f87171' : 'var(--accent-emerald)'}; display: flex; align-items: center; gap: 6px; padding: 6px 10px;" title="${isActive ? 'Archive' : 'Restore'}">
+               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+               <span class="action-text">${isActive ? 'Archive' : 'Restore'}</span>
             </button>
-            <svg id="chevron-${index}" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition: transform 0.3s ease; ${isExpanded ? 'transform: rotate(180deg);' : ''}"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.deleteEvent(${index})" style="border: 1px solid rgba(255,100,100,0.3); color: #f87171; display: flex; align-items: center; justify-content: center; padding: 6px 10px;" title="Delete Event">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+            <svg id="chevron-${index}" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition: transform 0.3s ease; margin-left: 4px; ${isExpanded ? 'transform: rotate(180deg);' : ''}"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </div>
         </div>
         
@@ -609,36 +614,65 @@ window.exportEventCSV = (index) => {
     return;
   }
 
-  // Define Headers
-  let csv = "Hunter Name,Age,Markers Found,Total Markers,Hints Used,Start Time,End Time,Total Duration,Score\\n";
+  const totalMarkers = ev.markers ? ev.markers.length : 0;
+  
+  // Define Headers: include dynamic Time-To-Marker headers based on total markers
+  let headers = ["Hunter Name", "Age", "Markers Found", "Total Markers", "Hints Used", "Dashcam Photos", "Selfie Photos", "Start Time", "End Time", "Total Duration (ms)", "Score"];
+  for (let i = 1; i <= totalMarkers; i++) {
+    headers.push(`Time to M${i} (ms)`);
+  }
+  
+  let csv = headers.join(',') + "\\n";
   
   // Add Rows
   ev.players.forEach(p => {
     const count = p.detectedMarkers ? p.detectedMarkers.length : 0;
-    const total = ev.markers ? ev.markers.length : 0;
     const hints = p.hintsUsed || 0;
     const score = (count * 100) - (hints * 50);
     
-    let durationStr = "---";
-    if (p.startTime) {
-      const finalTime = p.endTime || Date.now();
-      const diff = finalTime - p.startTime;
-      const mins = Math.floor(diff / 60000);
-      const secs = Math.floor((diff % 60000) / 1000);
-      durationStr = `${mins}m ${secs}s`;
+    let dashcams = 0;
+    let selfies = 0;
+    
+    // Sort photos chronologically to calculate spatial navigation time
+    let photos = [];
+    if (p.capturedPhotos) {
+      photos = [...p.capturedPhotos].sort((a, b) => a.timestamp - b.timestamp);
+      dashcams = photos.filter(ph => ph.type === 'dashcam').length;
+      selfies = photos.filter(ph => ph.type === 'selfie').length;
+    }
+    
+    let durationMs = "N/A";
+    if (p.startTime && p.endTime) {
+      durationMs = p.endTime - p.startTime;
     }
 
     const row = [
       p.name,
       p.age || 'N/A',
       count,
-      total,
+      totalMarkers,
       hints,
-      p.startTime ? new Date(p.startTime).toLocaleString() : 'N/A',
-      p.endTime ? new Date(p.endTime).toLocaleString() : 'N/A',
-      durationStr,
+      dashcams,
+      selfies,
+      p.startTime ? new Date(p.startTime).toISOString() : 'N/A',
+      p.endTime ? new Date(p.endTime).toISOString() : 'N/A',
+      durationMs,
       score
     ];
+    
+    // Calculate time to each marker
+    let lastTime = p.startTime || null;
+    for (let i = 1; i <= totalMarkers; i++) {
+      // Find the earliest dashcam for this marker
+      const markerPhoto = photos.find(ph => ph.marker === i && ph.type === 'dashcam');
+      if (markerPhoto && lastTime) {
+        const timeDiff = markerPhoto.timestamp - lastTime;
+        row.push(timeDiff);
+        lastTime = markerPhoto.timestamp; // update lastTime to current marker time
+      } else {
+        row.push("N/A");
+      }
+    }
     
     csv += row.join(',') + "\\n";
   });
@@ -660,6 +694,15 @@ window.toggleEventStatus = async (index) => {
   ev.status = (ev.status === 'inactive') ? 'active' : 'inactive';
   if (ev.id) await updateEventInDB(ev.id, ev);
   renderAdminDashboard();
+};
+
+window.resetEventPlayers = async (index) => {
+  const ev = state.events[index];
+  if (confirm(`Are you sure you want to RESET all player data for "${ev.name}"? This will delete all scores, times, and photos permanently so you can run a new study.`)) {
+    ev.players = [];
+    if (ev.id) await updateEventInDB(ev.id, ev);
+    renderAdminDashboard();
+  }
 };
 
 window.deleteEvent = async (index) => {
