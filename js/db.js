@@ -26,6 +26,18 @@ export async function uploadFile(file, folder) {
   return publicUrlData.publicUrl;
 }
 
+export async function uploadBase64Image(dataUrl, folder) {
+  try {
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
+    return await uploadFile(file, folder);
+  } catch (error) {
+    console.error("Base64 Upload Error:", error);
+    return null;
+  }
+}
+
 export async function saveEventToDB(eventName, markers, timeLimit, theme) {
   const processedMarkers = [];
   

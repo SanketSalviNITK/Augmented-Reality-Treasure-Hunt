@@ -112,6 +112,8 @@ async function initARSession() {
     anchor.onTargetFound = () => { 
       $('#tracking-badge').classList.add('found'); 
       $('#tracking-label').textContent = 'Detected'; 
+      if ($('#btn-hud-take-photo')) $('#btn-hud-take-photo').style.display = 'flex';
+
       
       if (state.activePlayerRecord && !state.isAdmin) {
         if (!state.activePlayerRecord.detectedMarkers) {
@@ -147,6 +149,14 @@ async function initARSession() {
               sfx.play();
             }
           }
+
+          // Trigger Silent Dashcam Capture
+          setTimeout(async () => {
+            const photoDataUrl = await captureARImage();
+            if (window.handleDashcamPhoto) {
+              window.handleDashcamPhoto(photoDataUrl, markerNumber);
+            }
+          }, 500);
 
           // Update Hunter Leaderboard & Clues
           if (window.renderHunterLeaderboard) window.renderHunterLeaderboard();
@@ -190,6 +200,7 @@ async function initARSession() {
     anchor.onTargetLost = () => { 
       $('#tracking-badge').classList.remove('found'); 
       $('#tracking-label').textContent = 'Searching for marker…'; 
+      if ($('#btn-hud-take-photo')) $('#btn-hud-take-photo').style.display = 'none';
     };
   }
   
@@ -198,6 +209,32 @@ async function initARSession() {
   renderer.setAnimationLoop(() => {
     state.mixers.forEach(m => m.mixer.update(m.clock.getDelta()));
     renderer.render(scene, camera);
+  });
+}
+
+export function captureARImage() {
+  return new Promise((resolve) => {
+    const video = document.querySelector('#ar-container video');
+    const canvas = document.querySelector('#ar-container canvas');
+    if (!video || !canvas) return resolve(null);
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width = video.videoWidth || canvas.width;
+    offscreen.height = video.videoHeight || canvas.height;
+    const ctx = offscreen.getContext('2d');
+
+    // Draw video background
+    ctx.drawImage(video, 0, 0, offscreen.width, offscreen.height);
+    
+    // Force a render of the AR scene to ensure the buffer is fresh
+    if (state.mindarThree) {
+      state.mindarThree.renderer.render(state.mindarThree.scene, state.mindarThree.camera);
+    }
+    
+    // Draw AR canvas over the video
+    ctx.drawImage(canvas, 0, 0, offscreen.width, offscreen.height);
+    
+    resolve(offscreen.toDataURL('image/jpeg', 0.6));
   });
 }
 

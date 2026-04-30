@@ -12,6 +12,7 @@ export const sections = {
   playerDashboard: $('#step-player-dashboard'),
   config: $('#step-marker-config'),
   crop: $('#step-crop'),
+  liveMonitor: $('#step-live-monitor'),
   review: $('#step-review'),
   feedback: $('#step-feedback'),
   postHuntLeaderboard: $('#step-post-hunt-leaderboard'),

@@ -5,10 +5,10 @@
 import { state, ADMIN_PASSWORD } from './js/state.js';
 import { $, $$, sections, showPanel } from './js/utils.js';
 import { initCrop, setupCropperEvents } from './js/cropper.js';
-import { startAR, stopAR, pauseAR, resumeAR } from './js/ar-engine.js';
+import { startAR, stopAR, pauseAR, resumeAR, captureARImage } from './js/ar-engine.js';
 
 import * as THREE from 'three';
-import { saveEventToDB, getEventsFromDB, deleteEventFromDB, updateEventInDB, saveFeedbackToDB, getFeedbackFromDB } from './js/db.js';
+import { saveEventToDB, getEventsFromDB, deleteEventFromDB, updateEventInDB, saveFeedbackToDB, getFeedbackFromDB, uploadBase64Image } from './js/db.js';
 import { initLandingAnimation, stopLandingAnimation } from './js/landing.js';
 
 // ─── Initialization ──────────────────────────────────────────
@@ -443,6 +443,10 @@ async function renderAdminDashboard() {
             </p>
           </div>
           <div style="display: flex; align-items: center; gap: 12px;">
+            ${isActive ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.openLiveMonitor(${index})" style="border: 1px solid var(--accent-emerald); color: var(--accent-emerald); display: flex; align-items: center; gap: 6px;" title="Live Event Monitor">
+               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"/><rect x="3" y="6" width="12" height="12" rx="2" ry="2"/></svg>
+               Monitor
+            </button>` : ''}
             <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.exportEventCSV(${index})" style="border: 1px solid var(--accent-cyan); color: var(--accent-cyan); display: flex; align-items: center; gap: 6px;" title="Export Results to CSV">
                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                Export
@@ -902,6 +906,151 @@ window.hardRefreshEvent = async (index) => {
   state.events = await getEventsFromDB();
   renderAdminDashboard();
 };
+
+window.openLiveMonitor = async (index) => {
+  const ev = state.events[index];
+  if (!ev) return;
+  
+  state.activeEventId = ev.id;
+  $('#monitor-event-name').textContent = ev.name;
+  
+  showPanel(sections.liveMonitor);
+  window.renderLiveMonitorLeaderboard();
+};
+
+window.renderLiveMonitorLeaderboard = async () => {
+  const list = $('#monitor-leaderboard-list');
+  const photoGrid = $('#monitor-photo-grid');
+  if (!list) return;
+
+  state.events = await getEventsFromDB();
+  const ev = state.events.find(e => e.id === state.activeEventId);
+  
+  const emptyPhotoGridHTML = `
+    <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--text-muted);">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 16px; opacity: 0.5;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <p>Waiting for the first photo check-in...</p>
+    </div>
+  `;
+
+  if (!ev || !ev.players || ev.players.length === 0) {
+    list.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem; text-align:center; padding:20px;">Waiting for players...</p>';
+    if (photoGrid) photoGrid.innerHTML = emptyPhotoGridHTML;
+    return;
+  }
+
+  // --- 1. LEADERBOARD ---
+  const sortedPlayers = [...ev.players].sort((a, b) => {
+    const aCount = a.detectedMarkers ? a.detectedMarkers.length : 0;
+    const bCount = b.detectedMarkers ? b.detectedMarkers.length : 0;
+    const aScore = (aCount * 100) - ((a.hintsUsed || 0) * 50);
+    const bScore = (bCount * 100) - ((b.hintsUsed || 0) * 50);
+    if (bScore !== aScore) return bScore - aScore;
+    return (a.startTime || 0) - (b.startTime || 0); 
+  });
+
+  list.innerHTML = sortedPlayers.map((p, idx) => {
+    const count = p.detectedMarkers ? p.detectedMarkers.length : 0;
+    const score = (count * 100) - ((p.hintsUsed || 0) * 50);
+    const total = ev.markers ? ev.markers.length : 0;
+    const isFinished = count === total && total > 0;
+    const avatarUrl = p.avatarId ? `assets/avatar-${p.avatarId}.svg` : 'assets/avatar-1.svg';
+    
+    return `
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: rgba(255,255,255,0.02); border-left: 2px solid ${idx < 3 ? 'var(--accent-emerald)' : 'transparent'}; border-radius: 6px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 0.8rem; font-weight: 800; color: ${idx < 3 ? 'var(--accent-emerald)' : 'var(--text-muted)'}; min-width: 16px;">#${idx + 1}</span>
+          <img src="${avatarUrl}" style="width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.1);">
+          <div style="display: flex; flex-direction: column;">
+            <span style="font-size: 0.85rem; color: white; font-weight: 700;">${isFinished ? '🏆 ' : ''}${p.name}</span>
+            <span style="font-size: 0.65rem; color: var(--text-muted);">Found: ${count}/${total}</span>
+          </div>
+        </div>
+        <span style="font-size: 0.95rem; font-weight: 800; color: ${isFinished ? 'var(--accent-emerald)' : 'var(--accent-cyan)'};">${score}</span>
+      </div>
+    `;
+  }).join('');
+
+  // --- 2. PHOTO GRID ---
+  if (!photoGrid) return;
+  
+  const allPhotos = [];
+  ev.players.forEach(p => {
+    if (p.capturedPhotos) {
+      p.capturedPhotos.forEach(photo => {
+        allPhotos.push({
+          playerName: p.name,
+          avatarId: p.avatarId,
+          ...photo
+        });
+      });
+    }
+  });
+
+  allPhotos.sort((a, b) => b.timestamp - a.timestamp); // Newest first
+
+  if (allPhotos.length === 0) {
+    photoGrid.innerHTML = emptyPhotoGridHTML;
+    return;
+  }
+
+  photoGrid.innerHTML = allPhotos.map((photo, i) => {
+    const typeLabel = photo.type === 'selfie' ? 'Selfie' : 'Dashcam';
+    const typeColor = photo.type === 'selfie' ? 'var(--primary)' : 'var(--text-muted)';
+    const avatarUrl = photo.avatarId ? `assets/avatar-${photo.avatarId}.svg` : 'assets/avatar-1.svg';
+    // Support dataUrl for backward compatibility with stage 2 tests
+    const src = photo.imageUrl || photo.dataUrl; 
+    
+    return `
+      <div class="monitor-photo-card" data-index="${i}" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 10px 20px rgba(0,0,0,0.5)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none';">
+        <div style="position: relative; width: 100%; aspect-ratio: 3/4; overflow: hidden; background: #000;">
+          <img src="${src}" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.9; transition: opacity 0.3s;" onload="this.style.opacity=1" onerror="this.src='https://placehold.co/400x600/1e1e24/444444?text=Image+Lost'">
+          <div style="position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 20px; font-size: 0.65rem; font-weight: 800; letter-spacing: 0.5px; color: ${typeColor}; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(4px); text-transform: uppercase;">
+            ${typeLabel}
+          </div>
+        </div>
+        <div style="padding: 12px; display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <img src="${avatarUrl}" style="width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.1);">
+            <span style="color: white; font-size: 0.85rem; font-weight: 700;">${photo.playerName}</span>
+          </div>
+          <span style="color: var(--accent-cyan); font-size: 0.75rem; font-weight: 800;">M${photo.marker}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Attach Lightbox Listeners
+  document.querySelectorAll('.monitor-photo-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const idx = card.getAttribute('data-index');
+      const photo = allPhotos[idx];
+      const src = photo.imageUrl || photo.dataUrl;
+      const typeLabel = photo.type === 'selfie' ? 'Selfie' : 'Dashcam';
+      
+      $('#lightbox-img').src = src;
+      $('#lightbox-player').textContent = photo.playerName;
+      $('#lightbox-meta').textContent = `Marker ${photo.marker} • ${typeLabel}`;
+      
+      $('#monitor-lightbox-overlay').style.display = 'flex';
+    });
+  });
+};
+
+$('#btn-close-lightbox').addEventListener('click', () => {
+  $('#monitor-lightbox-overlay').style.display = 'none';
+});
+
+$('#btn-monitor-back').addEventListener('click', () => {
+  showPanel(sections.adminDashboard);
+});
+
+$('#btn-monitor-sync-leaderboard').addEventListener('click', () => {
+  const btn = $('#btn-monitor-sync-leaderboard');
+  btn.style.transform = btn.style.transform ? '' : 'rotate(180deg)';
+  btn.style.transition = 'transform 0.3s ease';
+  window.renderLiveMonitorLeaderboard();
+});
 
 window.renderHunterLeaderboard = async () => {
   const list = $('#hunter-leaderboard-list');
@@ -1417,4 +1566,104 @@ $('#btn-quest-exit').addEventListener('click', () => {
 $('#btn-quest-stay').addEventListener('click', () => {
   $('#quest-complete-overlay').style.display = 'none';
   $('#quest-finished-status').style.display = 'flex';
+});
+
+// ─── Photo Check-In Logic ────────────────────────────────────
+let currentPhotoMarkerNumber = null;
+let currentPhotoDataUrl = null;
+
+// Automated Dashcam Capture (Silent)
+window.handleDashcamPhoto = async (dataUrl, markerNumber) => {
+  if (!dataUrl) return;
+  
+  // Upload to Supabase Storage
+  const publicUrl = await uploadBase64Image(dataUrl, 'live-photos');
+  if (!publicUrl) return;
+  
+  if (!state.activePlayerRecord.capturedPhotos) {
+    state.activePlayerRecord.capturedPhotos = [];
+  }
+  
+  state.activePlayerRecord.capturedPhotos.push({
+    marker: markerNumber,
+    imageUrl: publicUrl,
+    timestamp: Date.now(),
+    type: 'dashcam'
+  });
+  
+  const ev = state.events.find(e => e.id === state.activeEventId);
+  if (ev) {
+    const pIdx = ev.players.findIndex(p => p.name === state.activePlayerRecord.name);
+    if (pIdx !== -1) {
+      ev.players[pIdx] = state.activePlayerRecord;
+      updateEventInDB(ev.id, ev); // Background sync
+    }
+  }
+};
+
+// Selfie Mode Trigger
+$('#btn-hud-take-photo').addEventListener('click', async () => {
+  $('#btn-hud-take-photo').style.display = 'none';
+  
+  setTimeout(async () => {
+    const dataUrl = await captureARImage();
+    if (dataUrl) {
+      currentPhotoDataUrl = dataUrl;
+      // We don't have the explicit marker number here, so we derive it from the progress
+      currentPhotoMarkerNumber = state.activePlayerRecord.detectedMarkers ? state.activePlayerRecord.detectedMarkers.length : 1;
+      
+      $('#ar-photo-preview').src = dataUrl;
+      $('#ar-photo-title').textContent = "Selfie Captured!";
+      $('#ar-photo-confirm-overlay').style.display = 'flex';
+    } else {
+      $('#btn-hud-take-photo').style.display = 'flex';
+    }
+  }, 100);
+});
+
+// Cancel Selfie
+$('#btn-photo-cancel').addEventListener('click', () => {
+  $('#ar-photo-confirm-overlay').style.display = 'none';
+  $('#btn-hud-take-photo').style.display = 'flex';
+  currentPhotoDataUrl = null;
+});
+
+// Post Selfie to Live Feed
+$('#btn-photo-post').addEventListener('click', async () => {
+  if (!currentPhotoDataUrl) return;
+  
+  const btn = $('#btn-photo-post');
+  const originalText = btn.textContent;
+  btn.textContent = "Uploading...";
+  btn.disabled = true;
+  
+  // Upload to Supabase Storage
+  const publicUrl = await uploadBase64Image(currentPhotoDataUrl, 'live-photos');
+  
+  if (publicUrl) {
+    if (!state.activePlayerRecord.capturedPhotos) {
+      state.activePlayerRecord.capturedPhotos = [];
+    }
+    
+    state.activePlayerRecord.capturedPhotos.push({
+      marker: currentPhotoMarkerNumber,
+      imageUrl: publicUrl,
+      timestamp: Date.now(),
+      type: 'selfie'
+    });
+    
+    const ev = state.events.find(e => e.id === state.activeEventId);
+    if (ev) {
+      const pIdx = ev.players.findIndex(p => p.name === state.activePlayerRecord.name);
+      if (pIdx !== -1) {
+        ev.players[pIdx] = state.activePlayerRecord;
+        await updateEventInDB(ev.id, ev);
+      }
+    }
+  }
+
+  btn.textContent = originalText;
+  btn.disabled = false;
+  $('#ar-photo-confirm-overlay').style.display = 'none';
+  $('#btn-hud-take-photo').style.display = 'flex';
 });
