@@ -722,6 +722,7 @@ window.joinEvent = async (index) => {
   
   state.eventName = ev.name;
   state.markers = ev.markers;
+  state.timeLimit = ev.timeLimit || 0;
   
   // Update Hunter HUD Name & Avatar
   if ($('#ar-player-name')) $('#ar-player-name').textContent = state.player.name;
@@ -830,13 +831,28 @@ window.startQuestTimer = () => {
 
 function handleTimesUp() {
   if (window.stopAR) window.stopAR();
-  sections.ar.style.display = 'none';
   $('#times-up-overlay').style.display = 'flex';
+  
+  // Save end time
+  if (state.activePlayerRecord && !state.activePlayerRecord.endTime) {
+    state.activePlayerRecord.endTime = Date.now();
+    const ev = state.events.find(e => e.id === state.activeEventId);
+    if(ev) updateEventInDB(ev.id, ev);
+  }
+
+  // Auto redirect after 4 seconds
+  setTimeout(() => {
+    if ($('#times-up-overlay').style.display === 'flex') {
+      $('#btn-times-up-exit').click();
+    }
+  }, 4000);
 }
 
 $('#btn-times-up-exit').addEventListener('click', () => {
   $('#times-up-overlay').style.display = 'none';
-  showPanel(sections.feedback);
+  sections.ar.style.display = 'none';
+  sections.setup.style.display = '';
+  window.showPostHuntLeaderboard();
 });
 
 // Audio Toggle Logic
@@ -927,6 +943,73 @@ window.renderHunterLeaderboard = async () => {
     `;
   }).join('');
 };
+
+window.showPostHuntLeaderboard = () => {
+  showPanel(sections.postHuntLeaderboard);
+  window.renderPostHuntLeaderboard();
+};
+
+window.renderPostHuntLeaderboard = async () => {
+  const list = $('#post-hunt-leaderboard-list');
+  if (!list) return;
+
+  // Re-fetch events to get latest scores from other players
+  state.events = await getEventsFromDB();
+
+  const ev = state.events.find(e => e.id === state.activeEventId);
+  if (!ev || !ev.players) {
+    list.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem; text-align:center; padding:20px;">No data available.</p>';
+    return;
+  }
+
+  // Same sorting logic, but let's factor in the score (with hints)
+  const sortedPlayers = [...ev.players].sort((a, b) => {
+    const aCount = a.detectedMarkers ? a.detectedMarkers.length : 0;
+    const bCount = b.detectedMarkers ? b.detectedMarkers.length : 0;
+    const aScore = (aCount * 100) - ((a.hintsUsed || 0) * 50);
+    const bScore = (bCount * 100) - ((b.hintsUsed || 0) * 50);
+    
+    if (bScore !== aScore) return bScore - aScore;
+    
+    return (a.startTime || 0) - (b.startTime || 0); 
+  });
+
+  list.innerHTML = sortedPlayers.map((p, idx) => {
+    const isMe = p.name === state.player.name;
+    const count = p.detectedMarkers ? p.detectedMarkers.length : 0;
+    const score = (count * 100) - ((p.hintsUsed || 0) * 50);
+    const total = ev.markers ? ev.markers.length : 0;
+    const isFinished = count === total && total > 0;
+    const avatarUrl = p.avatarId ? `assets/avatar-${p.avatarId}.svg` : 'assets/avatar-1.svg';
+    
+    return `
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: ${isMe ? 'rgba(6, 182, 212, 0.15)' : (idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent')}; border-left: 3px solid ${isMe ? 'var(--accent-cyan)' : 'transparent'}; border-bottom: 1px solid rgba(255,255,255,0.05);">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 1rem; font-weight: 800; color: ${idx < 3 ? 'var(--accent-emerald)' : 'var(--text-muted)'}; min-width: 24px;">#${idx + 1}</span>
+          <img src="${avatarUrl}" style="width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.1);">
+          <div style="display: flex; flex-direction: column;">
+            <span style="font-size: 0.95rem; color: ${isMe ? 'white' : 'var(--text-secondary)'}; font-weight: ${isMe ? '800' : '600'};">
+              ${isFinished ? '🏆 ' : ''}${p.name} ${isMe ? '(YOU)' : ''}
+            </span>
+            <span style="font-size: 0.7rem; color: var(--text-muted);">Found: ${count}/${total} | Hints: ${p.hintsUsed || 0}</span>
+          </div>
+        </div>
+        <span style="font-size: 1.1rem; font-weight: 800; color: ${isFinished ? 'var(--accent-emerald)' : 'var(--accent-cyan)'};">${score}</span>
+      </div>
+    `;
+  }).join('');
+};
+
+$('#btn-sync-post-leaderboard').addEventListener('click', () => {
+  const btn = $('#btn-sync-post-leaderboard');
+  btn.style.transform = btn.style.transform ? '' : 'rotate(180deg)';
+  btn.style.transition = 'transform 0.3s ease';
+  window.renderPostHuntLeaderboard();
+});
+
+$('#btn-post-hunt-exit').addEventListener('click', () => {
+  showPanel(sections.feedback);
+});
 
 // Hunter Leaderboard Toggle & Sync
 $('#btn-toggle-leaderboard').addEventListener('click', () => {
@@ -1238,8 +1321,19 @@ $('#btn-stop-ar').addEventListener('click', () => {
     // If admin is just testing and exits, go back to review so they can edit or save
     showPanel(sections.review);
   } else {
-    // Players go to feedback
-    showPanel(sections.feedback);
+    // End player timer and update endTime if they hadn't finished
+    if (questTimerInterval) clearInterval(questTimerInterval);
+    if (state.activePlayerRecord && !state.activePlayerRecord.endTime) {
+       state.activePlayerRecord.endTime = Date.now();
+       const ev = state.events.find(e => e.id === state.activeEventId);
+       if(ev) updateEventInDB(ev.id, ev);
+    }
+    
+    // Check if #quest-complete-overlay is visible and hide it if so
+    $('#quest-complete-overlay').style.display = 'none';
+    
+    // Players go to Post-Hunt Leaderboard
+    window.showPostHuntLeaderboard();
   }
 });
 

@@ -14,6 +14,7 @@ export const sections = {
   crop: $('#step-crop'),
   review: $('#step-review'),
   feedback: $('#step-feedback'),
+  postHuntLeaderboard: $('#step-post-hunt-leaderboard'),
   ar: $('#ar-screen'),
   setup: $('#setup-screen')
 };
