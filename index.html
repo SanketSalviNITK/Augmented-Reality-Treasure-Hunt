@@ -373,6 +373,21 @@
           </div>
         </div>
 
+        <div class="config-section">
+          <h3>Time Limit (Minutes)</h3>
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;">Leave at 0 for an unlimited quest duration.</p>
+          <input type="number" id="time-limit" class="form-input" placeholder="0" min="0" max="120" value="0" />
+        </div>
+
+        <div class="config-section">
+          <h3>Visual Theme</h3>
+          <select id="event-theme" class="form-input" style="cursor: pointer;">
+            <option value="standard">Standard (Neon Purple)</option>
+            <option value="cyberpunk">Cyberpunk (Cyan & Pink)</option>
+            <option value="minimalist">Minimalist (Monochrome & Gold)</option>
+          </select>
+        </div>
+
         <div class="btn-row" style="width: 100%; display: flex; gap: 12px; margin-top: 16px;">
           <button id="btn-cancel-event" class="btn btn-ghost" style="flex: 1;">Cancel</button>
           <button id="btn-confirm-count" class="btn btn-next" disabled style="flex: 1;">
@@ -601,6 +616,14 @@
       <button id="btn-resume-camera" class="btn btn-primary" style="padding: 12px 32px;">Resume Scanning</button>
     </div>
 
+    <!-- Time's Up Overlay -->
+    <div id="times-up-overlay" style="display: none; position: absolute; inset: 0; background: rgba(153,27,27,0.95); z-index: 1050; flex-direction: column; justify-content: center; align-items: center; text-align: center; backdrop-filter: blur(8px); animation: fadeIn 0.5s ease;">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" style="margin-bottom: 20px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <h2 style="font-size: 3rem; font-weight: 800; color: white; margin: 0; letter-spacing: 3px; text-transform: uppercase; text-shadow: 0 4px 10px rgba(0,0,0,0.5);">Time's Up!</h2>
+      <p style="color: rgba(255,255,255,0.8); margin: 12px 0 32px 0; font-size: 1.1rem; max-width: 300px;">Your time limit for this quest has expired.</p>
+      <button id="btn-times-up-exit" class="btn btn-primary" style="padding: 12px 32px; background: white; color: #991b1b; border: none; font-weight: 800;">View Results</button>
+    </div>
+
     <!-- Quest Complete Overlay -->
     <div id="quest-complete-overlay"
       style="display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; flex-direction: column; justify-content: center; align-items: center; text-align: center; backdrop-filter: blur(8px); animation: fadeIn 0.5s ease;">
@@ -655,6 +678,10 @@
           <img class="avatar-icon" src="assets/avatar-1.svg" style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.1); padding: 2px;">
           <span id="ar-player-name" style="font-size: 0.85rem; font-weight: 700; color: white; letter-spacing: 0.5px;">Hunter</span>
         </div>
+        <div id="ar-timer" style="display: none; background: rgba(0,0,0,0.6); padding: 4px 12px; border-radius: 30px; border: 1px solid rgba(248,113,113,0.3); backdrop-filter: blur(5px); align-items: center; gap: 6px; box-shadow: 0 0 10px rgba(248,113,113,0.2);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span id="ar-time-left" style="font-size: 0.85rem; font-weight: 800; color: #fca5a5; letter-spacing: 1px; font-variant-numeric: tabular-nums;">00:00</span>
+        </div>
         <button id="btn-ar-save" class="btn btn-hud"
           style="display: none; background: rgba(167,139,250,0.8); border-color: rgba(167,139,250,1);">Save
           Event</button>
@@ -700,6 +727,15 @@
           <span id="ar-clue-num" style="font-size: 0.65rem; font-weight: 800; color: var(--text-muted);">Marker 1 of 5</span>
         </div>
         <div id="ar-clue-text" style="color: white; font-size: 0.95rem; font-weight: 500; line-height: 1.4; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">"Find the starting point!"</div>
+        
+        <!-- Hint Penalty Section -->
+        <div id="ar-hint-penalty-area" style="margin-top: 8px; display: flex; justify-content: flex-end; align-items: center;">
+            <button id="btn-use-hint" style="background: rgba(245,158,11,0.2); border: 1px solid rgba(245,158,11,0.5); color: #f59e0b; font-size: 0.7rem; font-weight: 700; padding: 4px 10px; border-radius: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;">Give Up? (-50 pts)</button>
+            <div id="ar-hint-revealed" style="display: none; flex-direction: column; align-items: flex-end; width: 100%;">
+              <span style="color: #f59e0b; font-size: 0.75rem; font-weight: 700;">Target Image:</span>
+              <img id="ar-hint-reveal-img" src="" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #f59e0b; margin-top: 4px;">
+            </div>
+        </div>
       </div>
     </div>
   </div>

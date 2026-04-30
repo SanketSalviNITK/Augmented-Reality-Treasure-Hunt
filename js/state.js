@@ -6,6 +6,8 @@ export const state = {
   isAdmin: false,
   eventName: '',
   markerCount: 1,
+  timeLimit: 0,
+  theme: 'standard',
   currentMarkerIndex: 0,
   markers: [],
   events: [], // Stores saved events

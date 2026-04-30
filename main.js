@@ -39,6 +39,35 @@ function toggleMusic() {
 
 btnMusic.addEventListener('click', toggleMusic);
 
+// Custom Event Theming Logic
+window.applyTheme = (themeStr) => {
+  const root = document.documentElement;
+  if (themeStr === 'cyberpunk') {
+    root.style.setProperty('--bg-base', '#09090b');
+    root.style.setProperty('--bg-panel', '#18181b');
+    root.style.setProperty('--accent-cyan', '#22d3ee');
+    root.style.setProperty('--accent-purple', '#ec4899'); // Pink
+    root.style.setProperty('--accent-emerald', '#06b6d4'); // Cyan
+  } else if (themeStr === 'minimalist') {
+    root.style.setProperty('--bg-base', '#ffffff');
+    root.style.setProperty('--bg-panel', '#f4f4f5');
+    root.style.setProperty('--text-main', '#18181b');
+    root.style.setProperty('--text-muted', '#71717a');
+    root.style.setProperty('--accent-cyan', '#d97706'); // Gold
+    root.style.setProperty('--accent-purple', '#fbbf24'); // Light Gold
+    root.style.setProperty('--accent-emerald', '#10b981'); 
+  } else {
+    // Reset to Standard
+    root.style.removeProperty('--bg-base');
+    root.style.removeProperty('--bg-panel');
+    root.style.removeProperty('--text-main');
+    root.style.removeProperty('--text-muted');
+    root.style.removeProperty('--accent-cyan');
+    root.style.removeProperty('--accent-purple');
+    root.style.removeProperty('--accent-emerald');
+  }
+};
+
 // ─── Initial Loading ──────────────────────────────────────────
 const loadingOverlay = $('#loading-overlay');
 const loadingProgress = $('#loading-progress');
@@ -263,8 +292,12 @@ $('#btn-admin-login').addEventListener('click', async () => {
 $('#btn-create-event').addEventListener('click', () => {
   state.eventName = '';
   state.markerCount = 1;
+  state.timeLimit = 0;
+  state.theme = 'standard';
   $('#event-name').value = '';
   $('#marker-count').value = 1;
+  $('#time-limit').value = 0;
+  $('#event-theme').value = 'standard';
   $('#btn-confirm-count').disabled = true;
   showPanel(sections.adminCount);
 });
@@ -573,13 +606,14 @@ window.exportEventCSV = (index) => {
   }
 
   // Define Headers
-  let csv = "Hunter Name,Age,Markers Found,Total Markers,Start Time,End Time,Total Duration,Score\\n";
+  let csv = "Hunter Name,Age,Markers Found,Total Markers,Hints Used,Start Time,End Time,Total Duration,Score\\n";
   
   // Add Rows
   ev.players.forEach(p => {
     const count = p.detectedMarkers ? p.detectedMarkers.length : 0;
     const total = ev.markers ? ev.markers.length : 0;
-    const score = count * 100;
+    const hints = p.hintsUsed || 0;
+    const score = (count * 100) - (hints * 50);
     
     let durationStr = "---";
     if (p.startTime) {
@@ -595,6 +629,7 @@ window.exportEventCSV = (index) => {
       p.age || 'N/A',
       count,
       total,
+      hints,
       p.startTime ? new Date(p.startTime).toLocaleString() : 'N/A',
       p.endTime ? new Date(p.endTime).toLocaleString() : 'N/A',
       durationStr,
@@ -698,6 +733,8 @@ window.joinEvent = async (index) => {
   // Initialize and show Hunter Leaderboard
   window.renderHunterLeaderboard();
   window.updateHUDClue();
+  window.startQuestTimer();
+  window.applyTheme(ev.theme);
   
   startAR();
 };
@@ -724,7 +761,83 @@ window.updateHUDClue = () => {
   clueCard.style.transform = 'translateX(-50%) translateY(0)';
   clueNum.textContent = `Marker ${foundCount + 1} of ${total}`;
   clueText.textContent = nextMarker.hint ? `"${nextMarker.hint}"` : "Search for the hidden marker!";
+  
+  // Reset hint UI
+  const btnHint = $('#btn-use-hint');
+  const revealedHint = $('#ar-hint-revealed');
+  if (btnHint && revealedHint) {
+    btnHint.style.display = 'block';
+    revealedHint.style.display = 'none';
+  }
 };
+
+$('#btn-use-hint').addEventListener('click', async () => {
+  if (!state.activePlayerRecord) return;
+  
+  const ev = state.events.find(e => e.id === state.activeEventId);
+  const foundCount = state.activePlayerRecord.detectedMarkers ? state.activePlayerRecord.detectedMarkers.length : 0;
+  const currentMarker = state.markers[foundCount];
+  
+  if (!currentMarker) return;
+  
+  $('#btn-use-hint').style.display = 'none';
+  $('#ar-hint-revealed').style.display = 'flex';
+  $('#ar-hint-reveal-img').src = currentMarker.imageUrl;
+  
+  // Track penalty
+  if (!state.activePlayerRecord.hintsUsed) state.activePlayerRecord.hintsUsed = 0;
+  state.activePlayerRecord.hintsUsed += 1;
+  
+  await updateEventInDB(ev.id, ev);
+});
+
+let questTimerInterval = null;
+window.startQuestTimer = () => {
+  if (questTimerInterval) clearInterval(questTimerInterval);
+  const timerEl = $('#ar-timer');
+  const timeLeftEl = $('#ar-time-left');
+  
+  if (!state.timeLimit || state.timeLimit <= 0) {
+    timerEl.style.display = 'none';
+    return;
+  }
+  
+  timerEl.style.display = 'flex';
+  const limitMs = state.timeLimit * 60 * 1000;
+  const startTime = state.activePlayerRecord.startTime;
+  
+  questTimerInterval = setInterval(() => {
+    const elapsed = Date.now() - startTime;
+    const remainingMs = limitMs - elapsed;
+    
+    if (remainingMs <= 0) {
+      clearInterval(questTimerInterval);
+      timeLeftEl.textContent = '00:00';
+      handleTimesUp();
+    } else {
+      const totalSeconds = Math.floor(remainingMs / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      timeLeftEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      
+      if (totalSeconds <= 60) {
+        timerEl.style.borderColor = 'rgba(255,0,0,0.8)';
+        timeLeftEl.style.color = '#ff4444';
+      }
+    }
+  }, 1000);
+};
+
+function handleTimesUp() {
+  if (window.stopAR) window.stopAR();
+  sections.ar.style.display = 'none';
+  $('#times-up-overlay').style.display = 'flex';
+}
+
+$('#btn-times-up-exit').addEventListener('click', () => {
+  $('#times-up-overlay').style.display = 'none';
+  showPanel(sections.feedback);
+});
 
 // Audio Toggle Logic
 $('#btn-toggle-audio').addEventListener('click', () => {
@@ -919,6 +1032,8 @@ $('#btn-confirm-count').addEventListener('click', startMarkerConfig);
 
 // ─── Marker Setup ─────────────────────────────────────────────
 function startMarkerConfig() {
+  state.timeLimit = parseInt($('#time-limit').value) || 0;
+  state.theme = $('#event-theme').value || 'standard';
   state.currentMarkerIndex = 0;
   state.markers = Array.from({ length: state.markerCount }, () => ({
     type: 'model', scale: 0.5, color: '#a78bfa'
@@ -1133,7 +1248,7 @@ $('#btn-ar-save').addEventListener('click', async () => {
   
   try {
     // Save the event to DB (uploads files)
-    const savedData = await saveEventToDB(state.eventName, state.markers);
+    const savedData = await saveEventToDB(state.eventName, state.markers, state.timeLimit, state.theme);
     if (savedData) {
       alert(`Success! "${state.eventName}" has been saved to the cloud and is now live for hunters.`);
       state.events.unshift({

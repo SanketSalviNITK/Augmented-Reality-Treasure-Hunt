@@ -26,7 +26,7 @@ export async function uploadFile(file, folder) {
   return publicUrlData.publicUrl;
 }
 
-export async function saveEventToDB(eventName, markers) {
+export async function saveEventToDB(eventName, markers, timeLimit, theme) {
   const processedMarkers = [];
   
   for (let m of markers) {
@@ -59,6 +59,8 @@ export async function saveEventToDB(eventName, markers) {
   const eventData = {
     name: eventName,
     markers: processedMarkers,
+    timeLimit: timeLimit || 0,
+    theme: theme || 'standard',
     players: []
   };
   
