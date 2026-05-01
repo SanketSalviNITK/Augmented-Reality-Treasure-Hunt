@@ -1,9 +1,8 @@
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
+
 const { createClient } = window.supabase;
 
-const supabaseUrl = 'https://bswsqfjhpkmbnnlqcxzy.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzd3NxZmpocGttYm5ubHFjeHp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NjYyMDYsImV4cCI6MjA5MjM0MjIwNn0.jowT0Dn1D5qHEfW-jATjpIkDhVcfKI831dTWfmBjduI';
-
-export const supabaseClient = createClient(supabaseUrl, supabaseKey);
+export const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export async function uploadFile(file, folder) {
   const fileExt = file.name ? file.name.split('.').pop() : 'jpg';

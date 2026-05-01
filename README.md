@@ -47,15 +47,18 @@ git clone https://github.com/SanketSalviNITK/Augmented-Reality-Treasure-Hunt.git
 # Navigate to the project
 cd Augmented-Reality-Treasure-Hunt
 
-# Start a local server
+# Start a local server (e.g. using serve)
 npx serve -l 3000
 ```
 
 ### 3. Configuration
-Ensure your Supabase credentials are set in `js/db.js`:
-*   `supabaseUrl`: Your project URL.
-*   `supabaseKey`: Your Anon Public Key.
-*   **Bucket Requirement:** Create a public bucket named `ar-assets` for marker images and 3D models.
+**Security First:** Never commit your Supabase API keys to version control.
+1. Copy `config.js.example` to a new file named `config.js` in the root directory.
+2. Add your Supabase credentials to `config.js`:
+   *   `SUPABASE_URL`: Your project URL.
+   *   `SUPABASE_ANON_KEY`: Your Anon Public Key.
+3. **Database Setup:** Run the provided SQL scripts (if any) or ensure you have an `events` table.
+4. **Storage Bucket:** Create a public bucket named `ar-assets` (used for marker images, 3D models, and live dashcam photos).
 
 ---
 
