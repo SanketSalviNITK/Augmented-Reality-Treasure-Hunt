@@ -91,9 +91,16 @@ async function tryLoadConfig() {
 async function initSystem() {
   await tryLoadConfig();
   
-  // If still missing core keys, show setup modal
+  // If still missing core keys, show setup UI inside loading screen
   if (!state.config.SUPABASE_URL || !state.config.SUPABASE_ANON_KEY) {
-    $('#config-modal').classList.remove('hidden');
+    const title = $('#loading-overlay div');
+    if (title) title.textContent = "Configuration Required";
+    
+    // Hide progress bar, show setup
+    const progressContainer = $('#loading-overlay div:nth-child(2)');
+    if (progressContainer) progressContainer.style.display = 'none';
+    
+    $('#config-setup').style.display = 'block';
   } else {
     finishLoading();
   }
@@ -106,6 +113,11 @@ function finishLoading() {
     initLandingAnimation();
     return;
   }
+
+  // Ensure setup is hidden, progress is visible
+  $('#config-setup').style.display = 'none';
+  const progressContainer = $('#loading-overlay div:nth-child(2)');
+  if (progressContainer) progressContainer.style.display = 'block';
 
   let progress = 0;
   const loadInterval = setInterval(() => {
@@ -123,13 +135,13 @@ function finishLoading() {
 }
 
 // Handle Manual Config Save
-$('#btn-save-config').addEventListener('click', () => {
-  const url = $('#cfg-supabase-url').value.trim();
-  const key = $('#cfg-supabase-key').value.trim();
-  const gemini = $('#cfg-gemini-key').value.trim();
+$('#btn-init-system').addEventListener('click', () => {
+  const url = $('#cfg-url').value.trim();
+  const key = $('#cfg-key').value.trim();
+  const gemini = $('#cfg-gemini').value.trim();
   
   if (!url || !key) {
-    alert("Supabase URL and Key are required for core systems!");
+    alert("Supabase URL and Key are required!");
     return;
   }
   
@@ -137,7 +149,9 @@ $('#btn-save-config').addEventListener('click', () => {
   state.config.SUPABASE_ANON_KEY = key;
   state.config.GEMINI_API_KEY = gemini;
   
-  $('#config-modal').classList.add('hidden');
+  // Update UI and start loading
+  const title = $('#loading-overlay div');
+  if (title) title.textContent = "Initializing AR Systems";
   finishLoading();
 });
 

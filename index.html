@@ -46,6 +46,23 @@
         style="width: 0%; height: 100%; background: linear-gradient(90deg, #d946ef, #06b6d4); transition: width 0.1s linear;">
       </div>
     </div>
+    <div id="config-setup" style="display: none; width: 100%; max-width: 360px; margin-top: 20px; padding: 20px; background: rgba(255,255,255,0.02); border: 1px solid rgba(0, 255, 255, 0.1); border-radius: 12px; text-align: left;">
+      <p style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 16px; line-height: 1.4;">
+        <strong>Public Deployment Detected:</strong> Provide your own API keys to initialize the system.
+      </p>
+      
+      <label style="display: block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px;">Supabase URL</label>
+      <input type="text" id="cfg-url" placeholder="https://xyz.supabase.co" style="width: 100%; padding: 8px; margin-bottom: 12px; background: #000; border: 1px solid #333; color: #fff; border-radius: 4px;">
+      
+      <label style="display: block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px;">Supabase Key</label>
+      <input type="password" id="cfg-key" placeholder="eyJhbG..." style="width: 100%; padding: 8px; margin-bottom: 12px; background: #000; border: 1px solid #333; color: #fff; border-radius: 4px;">
+      
+      <label style="display: block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px;">Gemini Key (Optional)</label>
+      <input type="password" id="cfg-gemini" placeholder="AIzaSy..." style="width: 100%; padding: 8px; margin-bottom: 20px; background: #000; border: 1px solid #333; color: #fff; border-radius: 4px;">
+      
+      <button id="btn-init-system" class="btn btn-primary" style="width: 100%; font-size: 0.9rem;">Save & Initialize</button>
+    </div>
+
     <button id="btn-start-experience" class="btn btn-primary"
       style="display: none; margin-top: 30px; animation: fadeInUp 0.5s forwards;">Enter System</button>
   </div>
@@ -108,30 +125,6 @@
       <div id="modal-body" class="modal-body">
         Content goes here
       </div>
-    </div>
-  </div>
-
-  <!-- Configuration Fallback Modal -->
-  <div id="config-modal" class="info-modal hidden" style="position: fixed; inset: 0; z-index: 100000; background: rgba(0,0,0,0.95); display: flex; align-items: center; justify-content: center;">
-    <div class="info-modal-content" style="max-width: 400px; border: 1px solid var(--primary); background: #10101a; position: relative;">
-      <h2 style="color: var(--primary); margin-top: 0; font-size: 1.5rem;">Setup Required</h2>
-      <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5; margin-bottom: 20px;">
-        To use ARTHunt on this domain, you must provide your own API keys. 
-        For local development, please use the <code>config.js.example</code> template.
-      </p>
-      
-      <div style="text-align: left;">
-        <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Supabase URL</label>
-        <input type="text" id="cfg-supabase-url" class="form-input" placeholder="https://xyz.supabase.co" style="margin-bottom: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; width: 100%; padding: 10px;">
-        
-        <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Supabase Anon Key</label>
-        <input type="password" id="cfg-supabase-key" class="form-input" placeholder="eyJhbG..." style="margin-bottom: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; width: 100%; padding: 10px;">
-        
-        <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Gemini API Key (Optional)</label>
-        <input type="password" id="cfg-gemini-key" class="form-input" placeholder="AIzaSy..." style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; width: 100%; padding: 10px;">
-      </div>
-      
-      <button id="btn-save-config" class="btn btn-primary" style="width: 100%; margin-top: 24px; padding: 14px; font-weight: 700;">Save & Initialize</button>
     </div>
   </div>
 
