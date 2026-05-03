@@ -28,9 +28,9 @@ export const state = {
   
   // Dynamic Configuration (to prevent 404 hangs on public deploys)
   config: {
-    GEMINI_API_KEY: null,
-    SUPABASE_URL: null,
-    SUPABASE_ANON_KEY: null
+    GEMINI_API_KEY: 'AIzaSyAewtxOOky2nN4A6ryCFkS5fwSfvMFc750',
+    SUPABASE_URL: 'https://bswsqfjhpkmbnnlqcxzy.supabase.co',
+    SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzd3NxZmpocGttYm5ubHFjeHp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NjYyMDYsImV4cCI6MjA5MjM0MjIwNn0.jowT0Dn1D5qHEfW-jATjpIkDhVcfKI831dTWfmBjduI'
   }
 };
 

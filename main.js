@@ -74,36 +74,9 @@ const loadingProgress = $('#loading-progress');
 const btnStartExp = $('#btn-start-experience');
 const landingRoot = $('#landing-root');
 
-// Dynamic Config Loader
-async function tryLoadConfig() {
-  try {
-    const config = await import('./config.js');
-    state.config.SUPABASE_URL = config.SUPABASE_URL;
-    state.config.SUPABASE_ANON_KEY = config.SUPABASE_ANON_KEY;
-    state.config.GEMINI_API_KEY = config.GEMINI_API_KEY;
-    console.log("Config loaded from local file.");
-  } catch (e) {
-    console.warn("No local config.js found. Awaiting manual setup.");
-  }
-}
-
 // Initial System Check
 async function initSystem() {
-  await tryLoadConfig();
-  
-  // If still missing core keys, show setup UI inside loading screen
-  if (!state.config.SUPABASE_URL || !state.config.SUPABASE_ANON_KEY) {
-    const title = $('#loading-overlay div');
-    if (title) title.textContent = "Configuration Required";
-    
-    // Hide progress bar, show setup
-    const progressContainer = $('#loading-overlay div:nth-child(2)');
-    if (progressContainer) progressContainer.style.display = 'none';
-    
-    $('#config-setup').style.display = 'block';
-  } else {
-    finishLoading();
-  }
+  finishLoading();
 }
 
 function finishLoading() {
@@ -113,11 +86,6 @@ function finishLoading() {
     initLandingAnimation();
     return;
   }
-
-  // Ensure setup is hidden, progress is visible
-  $('#config-setup').style.display = 'none';
-  const progressContainer = $('#loading-overlay div:nth-child(2)');
-  if (progressContainer) progressContainer.style.display = 'block';
 
   let progress = 0;
   const loadInterval = setInterval(() => {
@@ -133,27 +101,6 @@ function finishLoading() {
     }
   }, 150);
 }
-
-// Handle Manual Config Save
-$('#btn-init-system').addEventListener('click', () => {
-  const url = $('#cfg-url').value.trim();
-  const key = $('#cfg-key').value.trim();
-  const gemini = $('#cfg-gemini').value.trim();
-  
-  if (!url || !key) {
-    alert("Supabase URL and Key are required!");
-    return;
-  }
-  
-  state.config.SUPABASE_URL = url;
-  state.config.SUPABASE_ANON_KEY = key;
-  state.config.GEMINI_API_KEY = gemini;
-  
-  // Update UI and start loading
-  const title = $('#loading-overlay div');
-  if (title) title.textContent = "Initializing AR Systems";
-  finishLoading();
-});
 
 initSystem();
 
