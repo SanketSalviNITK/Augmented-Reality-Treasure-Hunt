@@ -5,13 +5,17 @@
 :root {
   /* Palette - Cyberpunk / Chillwave */
   --bg-primary: #050508;
+  --bg-base: #050508;
   --bg-card: rgba(16, 16, 26, 0.45);
+  --bg-panel: rgba(16, 16, 26, 0.65);
   --bg-card-hover: rgba(26, 26, 46, 0.65);
   --bg-glass: rgba(255, 255, 255, 0.02);
   --border-subtle: rgba(0, 255, 255, 0.1);
+  --border-color: rgba(0, 255, 255, 0.15);
   --border-active: rgba(255, 0, 255, 0.4);
 
   --text-primary: #f8f8ff;
+  --text-main: #f8f8ff;
   --text-secondary: #a0a0c0;
   --text-muted: #5a5a7a;
 
@@ -19,6 +23,11 @@
   --accent-cyan: #06b6d4;
   --accent-emerald: #10b981;
   --accent-rose: #f43f5e;
+  --accent-purple: #d946ef;
+
+  /* Primary action color (used in dashboards, buttons) */
+  --primary: #d946ef;
+  --primary-hover: #c026d3;
 
   --gradient-main: linear-gradient(135deg, #d946ef 0%, #06b6d4 100%);
   --gradient-warm: linear-gradient(135deg, #f43f5e 0%, #d946ef 100%);

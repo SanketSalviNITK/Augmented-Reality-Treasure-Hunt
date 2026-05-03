@@ -166,6 +166,11 @@ function transitionFromLanding(role) {
   stopLandingAnimation();
   $('#landing-root').classList.add('hidden');
 
+  // After CSS transition (0.8s in landing.css), fully remove from flow
+  setTimeout(() => {
+    $('#landing-root').style.display = 'none';
+  }, 850);
+
   setTimeout(() => {
     $('#setup-screen').style.display = 'block';
     void $('#setup-screen').offsetWidth;
@@ -173,12 +178,18 @@ function transitionFromLanding(role) {
 
     if (role === 'creator') {
       setRootColors('creator');
-      if (!state.isAdmin) $('#btn-admin-toggle').click();
+      // Reset state and show admin login
+      state.isAdmin = false;
+      isPlayerMode = false;
+      $('#btn-admin-toggle').click();
     } else {
       setRootColors('hunter');
-      if (state.isAdmin || !isPlayerMode) $('#btn-player-toggle').click();
+      // Reset state and show player login
+      state.isAdmin = false;
+      isPlayerMode = false;
+      $('#btn-player-toggle').click();
     }
-  }, 600);
+  }, 700);
 }
 
 $('#btn-enter-creator').addEventListener('click', () => {
