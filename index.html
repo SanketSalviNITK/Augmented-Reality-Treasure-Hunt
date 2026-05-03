@@ -110,6 +110,30 @@
         </div>
       </div>
     </div>
+
+    <!-- Configuration Fallback Modal -->
+    <div id="config-modal" class="info-modal hidden" style="z-index: 10000; background: rgba(0,0,0,0.95);">
+      <div class="info-modal-content" style="max-width: 400px; border: 1px solid var(--primary);">
+        <h2 style="color: var(--primary); margin-top: 0;">Setup Required</h2>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+          To use ARTHunt on this domain, you must provide your own API keys. 
+          For local development, please use the <code>config.js.example</code> template.
+        </p>
+        
+        <div style="margin-top: 20px; text-align: left;">
+          <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Supabase URL</label>
+          <input type="text" id="cfg-supabase-url" class="form-input" placeholder="https://xyz.supabase.co" style="margin-bottom: 12px;">
+          
+          <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Supabase Anon Key</label>
+          <input type="password" id="cfg-supabase-key" class="form-input" placeholder="eyJhbG..." style="margin-bottom: 12px;">
+          
+          <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Gemini API Key (Optional)</label>
+          <input type="password" id="cfg-gemini-key" class="form-input" placeholder="AIzaSy...">
+        </div>
+        
+        <button id="btn-save-config" class="btn btn-primary" style="width: 100%; margin-top: 24px;">Save & Initialize</button>
+      </div>
+    </div>
   </div>
 
   <div id="setup-screen" style="display: none; opacity: 0; transition: opacity 0.5s ease;">

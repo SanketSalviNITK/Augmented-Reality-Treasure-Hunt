@@ -24,7 +24,14 @@ export const state = {
   mixers: [],
   activePlayerRecord: null,
   activeEventId: null,
-  audioEnabled: true
+  audioEnabled: true,
+  
+  // Dynamic Configuration (to prevent 404 hangs on public deploys)
+  config: {
+    GEMINI_API_KEY: null,
+    SUPABASE_URL: null,
+    SUPABASE_ANON_KEY: null
+  }
 };
 
 export const ADMIN_PASSWORD = 'ARTHunt321';

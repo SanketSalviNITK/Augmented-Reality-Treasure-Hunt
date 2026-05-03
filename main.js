@@ -10,7 +10,6 @@ import { startAR, stopAR, pauseAR, resumeAR, captureARImage } from './js/ar-engi
 import * as THREE from 'three';
 import { saveEventToDB, getEventsFromDB, deleteEventFromDB, updateEventInDB, saveFeedbackToDB, getFeedbackFromDB, uploadBase64Image } from './js/db.js';
 import { initLandingAnimation, stopLandingAnimation } from './js/landing.js';
-import { GEMINI_API_KEY } from './config.js';
 
 // ─── Initialization ──────────────────────────────────────────
 setupCropperEvents();
@@ -69,18 +68,45 @@ window.applyTheme = (themeStr) => {
   }
 };
 
-// ─── Initial Loading ──────────────────────────────────────────
+// ─── Initial Loading Components ──────────────────────────────
 const loadingOverlay = $('#loading-overlay');
 const loadingProgress = $('#loading-progress');
 const btnStartExp = $('#btn-start-experience');
 const landingRoot = $('#landing-root');
 
-// HCI: Only show loading/intro once per session
-if (sessionStorage.getItem('systemEntered') === 'true') {
-  loadingOverlay.style.display = 'none';
-  landingRoot.classList.remove('zoomed-out');
-  initLandingAnimation();
-} else {
+// Dynamic Config Loader
+async function tryLoadConfig() {
+  try {
+    const config = await import('./config.js');
+    state.config.SUPABASE_URL = config.SUPABASE_URL;
+    state.config.SUPABASE_ANON_KEY = config.SUPABASE_ANON_KEY;
+    state.config.GEMINI_API_KEY = config.GEMINI_API_KEY;
+    console.log("Config loaded from local file.");
+  } catch (e) {
+    console.warn("No local config.js found. Awaiting manual setup.");
+  }
+}
+
+// Initial System Check
+async function initSystem() {
+  await tryLoadConfig();
+  
+  // If still missing core keys, show setup modal
+  if (!state.config.SUPABASE_URL || !state.config.SUPABASE_ANON_KEY) {
+    $('#config-modal').classList.remove('hidden');
+  } else {
+    finishLoading();
+  }
+}
+
+function finishLoading() {
+  if (sessionStorage.getItem('systemEntered') === 'true') {
+    loadingOverlay.style.display = 'none';
+    landingRoot.classList.remove('zoomed-out');
+    initLandingAnimation();
+    return;
+  }
+
   let progress = 0;
   const loadInterval = setInterval(() => {
     progress += Math.random() * 20;
@@ -95,6 +121,27 @@ if (sessionStorage.getItem('systemEntered') === 'true') {
     }
   }, 150);
 }
+
+// Handle Manual Config Save
+$('#btn-save-config').addEventListener('click', () => {
+  const url = $('#cfg-supabase-url').value.trim();
+  const key = $('#cfg-supabase-key').value.trim();
+  const gemini = $('#cfg-gemini-key').value.trim();
+  
+  if (!url || !key) {
+    alert("Supabase URL and Key are required for core systems!");
+    return;
+  }
+  
+  state.config.SUPABASE_URL = url;
+  state.config.SUPABASE_ANON_KEY = key;
+  state.config.GEMINI_API_KEY = gemini;
+  
+  $('#config-modal').classList.add('hidden');
+  finishLoading();
+});
+
+initSystem();
 
 // Audio Prime Helper (HCI: Satisfy Browser Autoplay Policy)
 function primeAudio() {
@@ -1494,8 +1541,9 @@ async function generateAIHint() {
     return;
   }
 
-  if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY') {
-    alert("Gemini API Key missing! Please add it to config.js.");
+  const apiKey = state.config.GEMINI_API_KEY;
+  if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY') {
+    alert("Gemini API Key missing! Please add it to config.js or the Setup screen.");
     return;
   }
 
@@ -1507,7 +1555,7 @@ async function generateAIHint() {
     // Extract base64 from dataUrl
     const base64Data = marker.dataUrl.split(',')[1];
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
