@@ -1,10 +1,21 @@
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
+import { state } from './state.js';
 
 const { createClient } = window.supabase;
 
-export const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export let supabaseClient = null;
+
+function ensureClient() {
+  if (!supabaseClient) {
+    const { SUPABASE_URL, SUPABASE_ANON_KEY } = state.config;
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      throw new Error("Supabase configuration missing!");
+    }
+    supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+}
 
 export async function uploadFile(file, folder) {
+  ensureClient();
   const fileExt = file.name ? file.name.split('.').pop() : 'jpg';
   const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
   const filePath = `${folder}/${fileName}`;
@@ -39,6 +50,7 @@ export async function uploadBase64Image(dataUrl, folder) {
 
 export async function saveEventToDB(eventName, markers, timeLimit, theme) {
   const processedMarkers = [];
+  ensureClient();
   
   for (let m of markers) {
     // Convert base64 dataUrl to File for image target
@@ -88,6 +100,7 @@ export async function saveEventToDB(eventName, markers, timeLimit, theme) {
 }
 
 export async function getEventsFromDB() {
+  ensureClient();
   const { data, error } = await supabaseClient
     .from('events')
     .select('*')
@@ -105,6 +118,7 @@ export async function getEventsFromDB() {
 }
 
 export async function updateEventInDB(eventId, fullEventData) {
+  ensureClient();
   const { error } = await supabaseClient
     .from('events')
     .update({ data: fullEventData })
@@ -114,6 +128,7 @@ export async function updateEventInDB(eventId, fullEventData) {
 }
 
 export async function deleteEventFromDB(eventId) {
+  ensureClient();
   const { error } = await supabaseClient
     .from('events')
     .delete()
@@ -123,6 +138,7 @@ export async function deleteEventFromDB(eventId) {
 }
 
 export async function saveFeedbackToDB(ratings) {
+  ensureClient();
   const { data, error } = await supabaseClient
     .from('feedback')
     .insert([{ data: ratings }])
@@ -136,6 +152,7 @@ export async function saveFeedbackToDB(ratings) {
 }
 
 export async function getFeedbackFromDB() {
+  ensureClient();
   const { data, error } = await supabaseClient
     .from('feedback')
     .select('*')

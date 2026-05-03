@@ -24,7 +24,14 @@ export const state = {
   mixers: [],
   activePlayerRecord: null,
   activeEventId: null,
-  audioEnabled: true
+  audioEnabled: true,
+
+  // Dynamic Configuration
+  config: {
+    GEMINI_API_KEY: '',
+    SUPABASE_URL: '',
+    SUPABASE_ANON_KEY: ''
+  }
 };
 
 export const ADMIN_PASSWORD = 'ARTHunt321';
