@@ -10,6 +10,7 @@ import { startAR, stopAR, pauseAR, resumeAR, captureARImage } from './js/ar-engi
 import * as THREE from 'three';
 import { saveEventToDB, getEventsFromDB, deleteEventFromDB, updateEventInDB, saveFeedbackToDB, getFeedbackFromDB, uploadBase64Image } from './js/db.js';
 import { initLandingAnimation, stopLandingAnimation } from './js/landing.js';
+// Removed static GEMINI_API_KEY import for global deployment security
 
 // ─── Initialization ──────────────────────────────────────────
 setupCropperEvents();
@@ -68,7 +69,7 @@ window.applyTheme = (themeStr) => {
   }
 };
 
-// ─── Initial Loading Components ──────────────────────────────
+// ─── Initial Loading & System Config ──────────────────────────
 const loadingOverlay = $('#loading-overlay');
 const loadingProgress = $('#loading-progress');
 const btnStartExp = $('#btn-start-experience');
@@ -76,16 +77,36 @@ const landingRoot = $('#landing-root');
 
 // Initial System Check
 async function initSystem() {
-  finishLoading();
+  // Check for dynamic config in state or config.js
+  let { SUPABASE_URL, SUPABASE_ANON_KEY } = state.config;
+
+  // If not in state, check if we can import from config.js (if not empty)
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    try {
+      const config = await import('./config.js');
+      if (config.SUPABASE_URL && config.SUPABASE_ANON_KEY) {
+        state.config.SUPABASE_URL = config.SUPABASE_URL;
+        state.config.SUPABASE_ANON_KEY = config.SUPABASE_ANON_KEY;
+        state.config.GEMINI_API_KEY = config.GEMINI_API_KEY || '';
+        SUPABASE_URL = config.SUPABASE_URL;
+      }
+    } catch (e) {
+      console.log("No config.js found or invalid.");
+    }
+  }
+
+  if (!SUPABASE_URL) {
+    // Show Config UI
+    $('#loading-status').style.display = 'none';
+    $('#config-setup').style.display = 'block';
+  } else {
+    finishLoading();
+  }
 }
 
 function finishLoading() {
-  if (sessionStorage.getItem('systemEntered') === 'true') {
-    loadingOverlay.style.display = 'none';
-    landingRoot.classList.remove('zoomed-out');
-    initLandingAnimation();
-    return;
-  }
+  $('#loading-status').style.display = 'block';
+  $('#config-setup').style.display = 'none';
 
   let progress = 0;
   const loadInterval = setInterval(() => {
@@ -102,6 +123,24 @@ function finishLoading() {
   }, 150);
 }
 
+$('#btn-init-system').addEventListener('click', () => {
+  const url = $('#cfg-url').value.trim();
+  const key = $('#cfg-key').value.trim();
+  const gemini = $('#cfg-gemini').value.trim();
+
+  if (!url || !key) {
+    alert("Please provide at least the Supabase URL and Anon Key.");
+    return;
+  }
+
+  state.config.SUPABASE_URL = url;
+  state.config.SUPABASE_ANON_KEY = key;
+  state.config.GEMINI_API_KEY = gemini;
+
+  finishLoading();
+});
+
+// Start initialization
 initSystem();
 
 // Audio Prime Helper (HCI: Satisfy Browser Autoplay Policy)
@@ -166,11 +205,6 @@ function transitionFromLanding(role) {
   stopLandingAnimation();
   $('#landing-root').classList.add('hidden');
 
-  // After CSS transition (0.8s in landing.css), fully remove from flow
-  setTimeout(() => {
-    $('#landing-root').style.display = 'none';
-  }, 850);
-
   setTimeout(() => {
     $('#setup-screen').style.display = 'block';
     void $('#setup-screen').offsetWidth;
@@ -178,18 +212,12 @@ function transitionFromLanding(role) {
 
     if (role === 'creator') {
       setRootColors('creator');
-      // Reset state and show admin login
-      state.isAdmin = false;
-      isPlayerMode = false;
-      $('#btn-admin-toggle').click();
+      if (!state.isAdmin) $('#btn-admin-toggle').click();
     } else {
       setRootColors('hunter');
-      // Reset state and show player login
-      state.isAdmin = false;
-      isPlayerMode = false;
-      $('#btn-player-toggle').click();
+      if (state.isAdmin || !isPlayerMode) $('#btn-player-toggle').click();
     }
-  }, 700);
+  }, 600);
 }
 
 $('#btn-enter-creator').addEventListener('click', () => {
@@ -1514,8 +1542,8 @@ async function generateAIHint() {
   }
 
   const apiKey = state.config.GEMINI_API_KEY;
-  if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY') {
-    alert("Gemini API Key missing! Please add it to config.js or the Setup screen.");
+  if (!apiKey) {
+    alert("Gemini API Key missing! Please configure it in the system setup.");
     return;
   }
 
@@ -1527,7 +1555,7 @@ async function generateAIHint() {
     // Extract base64 from dataUrl
     const base64Data = marker.dataUrl.split(',')[1];
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

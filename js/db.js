@@ -8,7 +8,7 @@ function ensureClient() {
   if (!supabaseClient) {
     const { SUPABASE_URL, SUPABASE_ANON_KEY } = state.config;
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      throw new Error("Supabase configuration missing! Please set keys in config.js or manual setup.");
+      throw new Error("Supabase configuration missing!");
     }
     supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
@@ -50,6 +50,7 @@ export async function uploadBase64Image(dataUrl, folder) {
 
 export async function saveEventToDB(eventName, markers, timeLimit, theme) {
   const processedMarkers = [];
+  ensureClient();
   
   for (let m of markers) {
     // Convert base64 dataUrl to File for image target
@@ -86,7 +87,6 @@ export async function saveEventToDB(eventName, markers, timeLimit, theme) {
     players: []
   };
   
-  ensureClient();
   const { data, error } = await supabaseClient
     .from('events')
     .insert([{ data: eventData }])
