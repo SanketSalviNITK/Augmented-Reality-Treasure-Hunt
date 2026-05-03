@@ -557,8 +557,16 @@
 
             <!-- 3. Hint Configuration -->
             <div class="config-section">
-              <h3>3. Set Quest Hint</h3>
-              <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;">A clue to help hunters find this marker.</p>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div>
+                  <h3 style="margin: 0;">3. Set Quest Hint</h3>
+                  <p style="font-size: 0.75rem; color: var(--text-muted); margin: 4px 0 0 0;">A clue to help hunters find this marker.</p>
+                </div>
+                <button id="btn-generate-ai-hint" type="button" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.75rem; display: flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                  Auto-Generate
+                </button>
+              </div>
               <textarea id="overlay-hint" placeholder="Enter riddle or hint here..." class="form-input" style="min-height: 80px; resize: none;"></textarea>
             </div>
           </div>

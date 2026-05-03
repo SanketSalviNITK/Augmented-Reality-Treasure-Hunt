@@ -10,6 +10,7 @@ import { startAR, stopAR, pauseAR, resumeAR, captureARImage } from './js/ar-engi
 import * as THREE from 'three';
 import { saveEventToDB, getEventsFromDB, deleteEventFromDB, updateEventInDB, saveFeedbackToDB, getFeedbackFromDB, uploadBase64Image } from './js/db.js';
 import { initLandingAnimation, stopLandingAnimation } from './js/landing.js';
+import { GEMINI_API_KEY } from './config.js';
 
 // ─── Initialization ──────────────────────────────────────────
 setupCropperEvents();
@@ -55,7 +56,7 @@ window.applyTheme = (themeStr) => {
     root.style.setProperty('--text-muted', '#71717a');
     root.style.setProperty('--accent-cyan', '#d97706'); // Gold
     root.style.setProperty('--accent-purple', '#fbbf24'); // Light Gold
-    root.style.setProperty('--accent-emerald', '#10b981'); 
+    root.style.setProperty('--accent-emerald', '#10b981');
   } else {
     // Reset to Standard
     root.style.removeProperty('--bg-base');
@@ -85,7 +86,7 @@ if (sessionStorage.getItem('systemEntered') === 'true') {
     progress += Math.random() * 20;
     if (progress > 100) progress = 100;
     loadingProgress.style.width = `${progress}%`;
-    
+
     if (progress === 100) {
       clearInterval(loadInterval);
       setTimeout(() => {
@@ -121,15 +122,15 @@ btnStartExp.addEventListener('click', () => {
       isMusicPlaying = true;
       iconOn.style.display = 'block';
       iconOff.style.display = 'none';
-    }).catch(() => {});
+    }).catch(() => { });
   }
-  
+
   // Transition overlay
   loadingOverlay.style.opacity = '0';
   setTimeout(() => {
     loadingOverlay.style.display = 'none';
   }, 800);
-  
+
   // Trigger zoom in transition
   landingRoot.classList.remove('zoomed-out');
   initLandingAnimation();
@@ -156,12 +157,12 @@ function setRootColors(theme) {
 function transitionFromLanding(role) {
   stopLandingAnimation();
   $('#landing-root').classList.add('hidden');
-  
+
   setTimeout(() => {
     $('#setup-screen').style.display = 'block';
     void $('#setup-screen').offsetWidth;
     $('#setup-screen').style.opacity = '1';
-    
+
     if (role === 'creator') {
       setRootColors('creator');
       if (!state.isAdmin) $('#btn-admin-toggle').click();
@@ -251,13 +252,13 @@ let isPlayerMode = false;
 $('#btn-admin-toggle').addEventListener('click', () => {
   state.isAdmin = !state.isAdmin;
   isPlayerMode = false;
-  
+
   $('#btn-admin-toggle').classList.toggle('active', state.isAdmin);
   $('#btn-player-toggle').classList.remove('active');
-  
+
   $('#login-form').style.display = state.isAdmin ? 'block' : 'none';
   $('#player-login-form').style.display = 'none';
-  
+
   $('#welcome-info').style.display = (state.isAdmin || isPlayerMode) ? 'none' : 'block';
   $('#welcome-title').textContent = state.isAdmin ? 'Hunt Creator Studio' : 'AR Treasure Hunt';
 });
@@ -265,13 +266,13 @@ $('#btn-admin-toggle').addEventListener('click', () => {
 $('#btn-player-toggle').addEventListener('click', () => {
   isPlayerMode = !isPlayerMode;
   state.isAdmin = false;
-  
+
   $('#btn-player-toggle').classList.toggle('active', isPlayerMode);
   $('#btn-admin-toggle').classList.remove('active');
-  
+
   $('#player-login-form').style.display = isPlayerMode ? 'block' : 'none';
   $('#login-form').style.display = 'none';
-  
+
   $('#welcome-info').style.display = (state.isAdmin || isPlayerMode) ? 'none' : 'block';
   $('#welcome-title').textContent = isPlayerMode ? 'Player Login' : 'AR Treasure Hunt';
 });
@@ -310,24 +311,24 @@ $('#btn-admin-logout').addEventListener('click', () => {
 $('#btn-player-login').addEventListener('click', async () => {
   const name = $('#player-name').value.trim();
   const age = $('#player-age').value.trim();
-  
+
   if (!name || !age) {
     $('#player-error').textContent = 'Please enter Name and Age.';
     $('#player-error').style.display = 'block';
     return;
   }
-  
+
   $('#btn-player-login').innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;border-top-color:#fff;margin:0 auto;"></div>';
   state.events = await getEventsFromDB();
   $('#btn-player-login').innerHTML = 'Login';
-  
-  
+
+
   if (!state.events || state.events.length === 0) {
     $('#player-error').textContent = 'No active games found. Admin must create one!';
     $('#player-error').style.display = 'block';
     return;
   }
-  
+
   $('#player-error').style.display = 'none';
   state.player = { name, age };
   renderPlayerDashboard();
@@ -347,10 +348,10 @@ async function renderAdminDashboard() {
   const inactiveList = $('#admin-event-list-inactive');
   if (activeList) activeList.innerHTML = '';
   if (inactiveList) inactiveList.innerHTML = '';
-  
+
   let totalHunters = 0;
   let activeEventCount = 0;
-  
+
   // Render Event Lists
   if (state.events.length === 0) {
     if (activeList) activeList.innerHTML = '<p style="color:var(--text-secondary); text-align:center; font-size:0.85rem; padding: 20px;">No active events.</p>';
@@ -359,7 +360,7 @@ async function renderAdminDashboard() {
     state.events.forEach((ev, index) => {
       let playersHtml = '<p style="color:var(--text-muted); font-size:0.8rem; text-align:center; padding:10px;">No participants yet.</p>';
       const isActive = ev.status !== 'inactive';
-      
+
       if (ev.players && ev.players.length > 0) {
         totalHunters += ev.players.length;
         if (isActive) activeEventCount++;
@@ -380,7 +381,7 @@ async function renderAdminDashboard() {
           const percent = total > 0 ? (count / total) * 100 : 0;
           const score = count * 100;
           const isFinished = count === total && total > 0;
-          
+
           let timeStr = '---';
           if (p.startTime) {
             const finalTime = p.endTime || Date.now();
@@ -390,7 +391,7 @@ async function renderAdminDashboard() {
             timeStr = `${mins}m ${secs}s`;
           }
 
-          const statusBadge = isFinished 
+          const statusBadge = isFinished
             ? `<span style="font-size: 0.65rem; background: rgba(16,185,129,0.2); color: #10b981; padding: 2px 6px; border-radius: 4px; font-weight: 800; border: 1px solid rgba(16,185,129,0.3);">🏆 COMPLETED</span>`
             : `<span style="font-size: 0.65rem; background: rgba(6,182,212,0.2); color: var(--accent-cyan); padding: 2px 6px; border-radius: 4px; font-weight: 800; border: 1px solid rgba(6,182,212,0.3);">⚡ HUNTING</span>`;
 
@@ -480,7 +481,7 @@ async function renderAdminDashboard() {
           </div>
         </div>
       `;
-      
+
       if (isActive) {
         if (activeList) activeList.appendChild(card);
       } else {
@@ -507,14 +508,14 @@ async function renderAdminDashboard() {
     if ($('#stat-usability')) $('#stat-usability').textContent = avg(sums.usability);
     if ($('#stat-engagement')) $('#stat-engagement').textContent = avg(sums.engagement);
     if ($('#stat-stability')) $('#stat-stability').textContent = avg(sums.stability);
-    
+
     // Overall average for the main feedback card
     const totalAvg = ((sums.immersion + sums.usability + sums.engagement + sums.stability) / (count * 4)).toFixed(1);
     if ($('#stat-feedback')) $('#stat-feedback').textContent = `${totalAvg} / 5`;
   }
 
   // Populate Core Metrics
-  const mockEngagementTime = totalHunters * 1.5; 
+  const mockEngagementTime = totalHunters * 1.5;
   if ($('#stat-hunters')) $('#stat-hunters').textContent = totalHunters;
   if ($('#stat-time')) $('#stat-time').textContent = `${mockEngagementTime.toFixed(1)}h`;
 
@@ -523,9 +524,9 @@ async function renderAdminDashboard() {
   if (chartCanvas) {
     const ctx = chartCanvas.getContext('2d');
     if (analyticsChartInstance) analyticsChartInstance.destroy();
-    
+
     const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const data = Array.from({length: 7}, () => Math.floor(Math.random() * (totalHunters * 2 + 5)));
+    const data = Array.from({ length: 7 }, () => Math.floor(Math.random() * (totalHunters * 2 + 5)));
 
     analyticsChartInstance = new window.Chart(ctx, {
       type: 'line',
@@ -560,7 +561,7 @@ window.toggleEventDetails = (index, eventId) => {
   const details = document.getElementById(`event-details-${index}`);
   const chevron = document.getElementById(`chevron-${index}`);
   const isOpening = details.style.maxHeight === '0px' || !details.style.maxHeight;
-  
+
   if (isOpening) {
     details.style.maxHeight = '500px';
     details.style.opacity = '1';
@@ -585,7 +586,7 @@ document.querySelectorAll('.dash-nav-btn').forEach(btn => {
     e.target.classList.add('active');
     e.target.style.background = 'rgba(255,255,255,0.05)';
     e.target.style.color = 'white';
-    
+
     document.querySelectorAll('.dash-tab').forEach(t => t.style.display = 'none');
     document.getElementById(e.target.dataset.tab).style.display = 'block';
   });
@@ -601,7 +602,7 @@ document.querySelectorAll('.sub-tab-btn').forEach(btn => {
     e.target.classList.add('active');
     e.target.style.color = 'white';
     e.target.style.borderBottomColor = 'var(--primary)';
-    
+
     document.querySelectorAll('.sub-tab-content').forEach(t => t.style.display = 'none');
     document.getElementById(e.target.dataset.subtab).style.display = 'block';
   });
@@ -615,24 +616,24 @@ window.exportEventCSV = (index) => {
   }
 
   const totalMarkers = ev.markers ? ev.markers.length : 0;
-  
+
   // Define Headers: include dynamic Time-To-Marker headers based on total markers
   let headers = ["Hunter Name", "Age", "Markers Found", "Total Markers", "Hints Used", "Dashcam Photos", "Selfie Photos", "Start Time", "End Time", "Total Duration (ms)", "Score"];
   for (let i = 1; i <= totalMarkers; i++) {
     headers.push(`Time to M${i} (ms)`);
   }
-  
+
   let csv = headers.join(',') + "\\n";
-  
+
   // Add Rows
   ev.players.forEach(p => {
     const count = p.detectedMarkers ? p.detectedMarkers.length : 0;
     const hints = p.hintsUsed || 0;
     const score = (count * 100) - (hints * 50);
-    
+
     let dashcams = 0;
     let selfies = 0;
-    
+
     // Sort photos chronologically to calculate spatial navigation time
     let photos = [];
     if (p.capturedPhotos) {
@@ -640,7 +641,7 @@ window.exportEventCSV = (index) => {
       dashcams = photos.filter(ph => ph.type === 'dashcam').length;
       selfies = photos.filter(ph => ph.type === 'selfie').length;
     }
-    
+
     let durationMs = "N/A";
     if (p.startTime && p.endTime) {
       durationMs = p.endTime - p.startTime;
@@ -659,7 +660,7 @@ window.exportEventCSV = (index) => {
       durationMs,
       score
     ];
-    
+
     // Calculate time to each marker
     let lastTime = p.startTime || null;
     for (let i = 1; i <= totalMarkers; i++) {
@@ -673,7 +674,7 @@ window.exportEventCSV = (index) => {
         row.push("N/A");
       }
     }
-    
+
     csv += row.join(',') + "\\n";
   });
 
@@ -718,10 +719,10 @@ function renderPlayerDashboard() {
   const list = $('#player-event-list');
   list.innerHTML = '';
   $('#player-greeting').textContent = `Welcome, ${state.player.name}!`;
-  
+
   // Only show Active events to hunters
   const activeEvents = state.events.filter(ev => ev.status !== 'inactive');
-  
+
   if (activeEvents.length === 0) {
     list.innerHTML = '<p style="color:var(--text-secondary); text-align:center; padding: 20px;">No quests available at the moment.</p>';
     return;
@@ -745,14 +746,29 @@ function renderPlayerDashboard() {
 
 window.joinEvent = async (index) => {
   const ev = state.events[index];
-  
+
   // Find or create player record
   let playerRecord = ev.players.find(p => p.name === state.player.name);
   if (!playerRecord) {
-    playerRecord = { 
-      name: state.player.name, 
-      age: state.player.age, 
+    // Generate randomized path (Blockchain-like sequence)
+    // Marker 0 is always the starting point
+    const markerCount = ev.markers.length;
+    const targets = Array.from({ length: markerCount - 1 }, (_, i) => i + 1); // [1, 2, 3, ...]
+
+    // Fisher-Yates Shuffle
+    for (let i = targets.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [targets[i], targets[j]] = [targets[j], targets[i]];
+    }
+
+    const customPath = [0, ...targets];
+    console.log(`Generated Blockchain Path for ${state.player.name}:`, customPath);
+
+    playerRecord = {
+      name: state.player.name,
+      age: state.player.age,
       detectedMarkers: [],
+      customPath: customPath,
       startTime: Date.now(),
       avatarId: Math.floor(Math.random() * 50) + 1 // Assign random avatar 1-50
     };
@@ -763,27 +779,27 @@ window.joinEvent = async (index) => {
     if (!playerRecord.avatarId) playerRecord.avatarId = Math.floor(Math.random() * 50) + 1;
     await updateEventInDB(ev.id, ev);
   }
-  
+
   state.activePlayerRecord = playerRecord;
   state.activeEventId = ev.id;
-  
+
   state.eventName = ev.name;
   state.markers = ev.markers;
   state.timeLimit = ev.timeLimit || 0;
-  
+
   // Update Hunter HUD Name & Avatar
   if ($('#ar-player-name')) $('#ar-player-name').textContent = state.player.name;
   const avatarImg = document.querySelector('#ar-hud .avatar-icon');
   if (avatarImg && playerRecord.avatarId) {
     avatarImg.src = `assets/avatar-${playerRecord.avatarId}.svg`;
   }
-  
+
   // Initialize and show Hunter Leaderboard
   window.renderHunterLeaderboard();
   window.updateHUDClue();
   window.startQuestTimer();
   window.applyTheme(ev.theme);
-  
+
   startAR();
 };
 
@@ -791,25 +807,30 @@ window.updateHUDClue = () => {
   const clueCard = $('#ar-clue-card');
   const clueText = $('#ar-clue-text');
   const clueNum = $('#ar-clue-num');
-  
+
   if (!state.activePlayerRecord || !state.markers) return;
-  
+
   const foundCount = state.activePlayerRecord.detectedMarkers ? state.activePlayerRecord.detectedMarkers.length : 0;
   const total = state.markers.length;
-  
+
   if (foundCount >= total) {
     clueCard.style.opacity = '0';
     clueCard.style.transform = 'translateX(-50%) translateY(20px)';
     return;
   }
-  
-  // The next clue is the one at index 'foundCount'
-  const nextMarker = state.markers[foundCount];
+
+  // The next clue depends on the Blockchain Path
+  let nextMarkerIndex = foundCount;
+  if (state.activePlayerRecord.customPath) {
+    nextMarkerIndex = state.activePlayerRecord.customPath[foundCount];
+  }
+
+  const nextMarker = state.markers[nextMarkerIndex];
   clueCard.style.opacity = '1';
   clueCard.style.transform = 'translateX(-50%) translateY(0)';
   clueNum.textContent = `Marker ${foundCount + 1} of ${total}`;
   clueText.textContent = nextMarker.hint ? `"${nextMarker.hint}"` : "Search for the hidden marker!";
-  
+
   // Reset hint UI
   const btnHint = $('#btn-use-hint');
   const revealedHint = $('#ar-hint-revealed');
@@ -821,21 +842,27 @@ window.updateHUDClue = () => {
 
 $('#btn-use-hint').addEventListener('click', async () => {
   if (!state.activePlayerRecord) return;
-  
+
   const ev = state.events.find(e => e.id === state.activeEventId);
   const foundCount = state.activePlayerRecord.detectedMarkers ? state.activePlayerRecord.detectedMarkers.length : 0;
-  const currentMarker = state.markers[foundCount];
-  
+
+  let currentMarkerIndex = foundCount;
+  if (state.activePlayerRecord.customPath) {
+    currentMarkerIndex = state.activePlayerRecord.customPath[foundCount];
+  }
+
+  const currentMarker = state.markers[currentMarkerIndex];
+
   if (!currentMarker) return;
-  
+
   $('#btn-use-hint').style.display = 'none';
   $('#ar-hint-revealed').style.display = 'flex';
   $('#ar-hint-reveal-img').src = currentMarker.imageUrl;
-  
+
   // Track penalty
   if (!state.activePlayerRecord.hintsUsed) state.activePlayerRecord.hintsUsed = 0;
   state.activePlayerRecord.hintsUsed += 1;
-  
+
   await updateEventInDB(ev.id, ev);
 });
 
@@ -844,20 +871,20 @@ window.startQuestTimer = () => {
   if (questTimerInterval) clearInterval(questTimerInterval);
   const timerEl = $('#ar-timer');
   const timeLeftEl = $('#ar-time-left');
-  
+
   if (!state.timeLimit || state.timeLimit <= 0) {
     timerEl.style.display = 'none';
     return;
   }
-  
+
   timerEl.style.display = 'flex';
   const limitMs = state.timeLimit * 60 * 1000;
   const startTime = state.activePlayerRecord.startTime;
-  
+
   questTimerInterval = setInterval(() => {
     const elapsed = Date.now() - startTime;
     const remainingMs = limitMs - elapsed;
-    
+
     if (remainingMs <= 0) {
       clearInterval(questTimerInterval);
       timeLeftEl.textContent = '00:00';
@@ -867,7 +894,7 @@ window.startQuestTimer = () => {
       const minutes = Math.floor(totalSeconds / 60);
       const seconds = totalSeconds % 60;
       timeLeftEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-      
+
       if (totalSeconds <= 60) {
         timerEl.style.borderColor = 'rgba(255,0,0,0.8)';
         timeLeftEl.style.color = '#ff4444';
@@ -879,12 +906,12 @@ window.startQuestTimer = () => {
 function handleTimesUp() {
   if (window.stopAR) window.stopAR();
   $('#times-up-overlay').style.display = 'flex';
-  
+
   // Save end time
   if (state.activePlayerRecord && !state.activePlayerRecord.endTime) {
     state.activePlayerRecord.endTime = Date.now();
     const ev = state.events.find(e => e.id === state.activeEventId);
-    if(ev) updateEventInDB(ev.id, ev);
+    if (ev) updateEventInDB(ev.id, ev);
   }
 
   // Auto redirect after 4 seconds
@@ -907,7 +934,7 @@ $('#btn-toggle-audio').addEventListener('click', () => {
   state.audioEnabled = !state.audioEnabled;
   const onIcon = $('#icon-audio-on');
   const offIcon = $('#icon-audio-off');
-  
+
   if (state.audioEnabled) {
     onIcon.style.display = 'block';
     offIcon.style.display = 'none';
@@ -925,7 +952,7 @@ const toggleCam = async () => {
   const onIcon = $('#icon-cam-on');
   const offIcon = $('#icon-cam-off');
   const overlay = $('#power-save-overlay');
-  
+
   if (isCameraPaused) {
     onIcon.style.display = 'none';
     offIcon.style.display = 'block';
@@ -945,7 +972,7 @@ $('#btn-resume-camera').addEventListener('click', toggleCam);
 window.hardRefreshEvent = async (index) => {
   const btn = document.getElementById(`btn-creator-sync-${index}`);
   if (btn) btn.style.transform = 'rotate(180deg)';
-  
+
   state.events = await getEventsFromDB();
   renderAdminDashboard();
 };
@@ -953,10 +980,10 @@ window.hardRefreshEvent = async (index) => {
 window.openLiveMonitor = async (index) => {
   const ev = state.events[index];
   if (!ev) return;
-  
+
   state.activeEventId = ev.id;
   $('#monitor-event-name').textContent = ev.name;
-  
+
   showPanel(sections.liveMonitor);
   window.renderLiveMonitorLeaderboard();
 };
@@ -968,7 +995,7 @@ window.renderLiveMonitorLeaderboard = async () => {
 
   state.events = await getEventsFromDB();
   const ev = state.events.find(e => e.id === state.activeEventId);
-  
+
   const emptyPhotoGridHTML = `
     <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--text-muted);">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 16px; opacity: 0.5;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
@@ -989,7 +1016,7 @@ window.renderLiveMonitorLeaderboard = async () => {
     const aScore = (aCount * 100) - ((a.hintsUsed || 0) * 50);
     const bScore = (bCount * 100) - ((b.hintsUsed || 0) * 50);
     if (bScore !== aScore) return bScore - aScore;
-    return (a.startTime || 0) - (b.startTime || 0); 
+    return (a.startTime || 0) - (b.startTime || 0);
   });
 
   list.innerHTML = sortedPlayers.map((p, idx) => {
@@ -998,7 +1025,7 @@ window.renderLiveMonitorLeaderboard = async () => {
     const total = ev.markers ? ev.markers.length : 0;
     const isFinished = count === total && total > 0;
     const avatarUrl = p.avatarId ? `assets/avatar-${p.avatarId}.svg` : 'assets/avatar-1.svg';
-    
+
     return `
       <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: rgba(255,255,255,0.02); border-left: 2px solid ${idx < 3 ? 'var(--accent-emerald)' : 'transparent'}; border-radius: 6px;">
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -1016,7 +1043,7 @@ window.renderLiveMonitorLeaderboard = async () => {
 
   // --- 2. PHOTO GRID ---
   if (!photoGrid) return;
-  
+
   const allPhotos = [];
   ev.players.forEach(p => {
     if (p.capturedPhotos) {
@@ -1042,8 +1069,8 @@ window.renderLiveMonitorLeaderboard = async () => {
     const typeColor = photo.type === 'selfie' ? 'var(--primary)' : 'var(--text-muted)';
     const avatarUrl = photo.avatarId ? `assets/avatar-${photo.avatarId}.svg` : 'assets/avatar-1.svg';
     // Support dataUrl for backward compatibility with stage 2 tests
-    const src = photo.imageUrl || photo.dataUrl; 
-    
+    const src = photo.imageUrl || photo.dataUrl;
+
     return `
       <div class="monitor-photo-card" data-index="${i}" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 10px 20px rgba(0,0,0,0.5)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none';">
         <div style="position: relative; width: 100%; aspect-ratio: 3/4; overflow: hidden; background: #000;">
@@ -1070,11 +1097,11 @@ window.renderLiveMonitorLeaderboard = async () => {
       const photo = allPhotos[idx];
       const src = photo.imageUrl || photo.dataUrl;
       const typeLabel = photo.type === 'selfie' ? 'Selfie' : 'Dashcam';
-      
+
       $('#lightbox-img').src = src;
       $('#lightbox-player').textContent = photo.playerName;
       $('#lightbox-meta').textContent = `Marker ${photo.marker} • ${typeLabel}`;
-      
+
       $('#monitor-lightbox-overlay').style.display = 'flex';
     });
   });
@@ -1111,7 +1138,7 @@ window.renderHunterLeaderboard = async () => {
     if ((b.detectedMarkers?.length || 0) !== (a.detectedMarkers?.length || 0)) {
       return (b.detectedMarkers?.length || 0) - (a.detectedMarkers?.length || 0);
     }
-    return (a.startTime || 0) - (b.startTime || 0); 
+    return (a.startTime || 0) - (b.startTime || 0);
   });
 
   list.innerHTML = sortedPlayers.map((p, idx) => {
@@ -1120,7 +1147,7 @@ window.renderHunterLeaderboard = async () => {
     const total = ev.markers ? ev.markers.length : 0;
     const isFinished = count === total && total > 0;
     const avatarUrl = p.avatarId ? `assets/avatar-${p.avatarId}.svg` : 'assets/avatar-1.svg';
-    
+
     return `
       <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: ${isMe ? 'rgba(6, 182, 212, 0.1)' : 'transparent'}; border-left: 2px solid ${isMe ? 'var(--accent-cyan)' : 'transparent'};">
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -1160,10 +1187,10 @@ window.renderPostHuntLeaderboard = async () => {
     const bCount = b.detectedMarkers ? b.detectedMarkers.length : 0;
     const aScore = (aCount * 100) - ((a.hintsUsed || 0) * 50);
     const bScore = (bCount * 100) - ((b.hintsUsed || 0) * 50);
-    
+
     if (bScore !== aScore) return bScore - aScore;
-    
-    return (a.startTime || 0) - (b.startTime || 0); 
+
+    return (a.startTime || 0) - (b.startTime || 0);
   });
 
   list.innerHTML = sortedPlayers.map((p, idx) => {
@@ -1173,7 +1200,7 @@ window.renderPostHuntLeaderboard = async () => {
     const total = ev.markers ? ev.markers.length : 0;
     const isFinished = count === total && total > 0;
     const avatarUrl = p.avatarId ? `assets/avatar-${p.avatarId}.svg` : 'assets/avatar-1.svg';
-    
+
     return `
       <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: ${isMe ? 'rgba(6, 182, 212, 0.15)' : (idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent')}; border-left: 3px solid ${isMe ? 'var(--accent-cyan)' : 'transparent'}; border-bottom: 1px solid rgba(255,255,255,0.05);">
         <div style="display: flex; align-items: center; gap: 12px;">
@@ -1215,11 +1242,11 @@ $('#btn-sync-leaderboard').addEventListener('click', async () => {
   const btn = $('#btn-sync-leaderboard');
   btn.style.transform = 'rotate(180deg)';
   btn.style.opacity = '1';
-  
+
   // Refresh events from DB
   state.events = await getEventsFromDB();
   await window.renderHunterLeaderboard();
-  
+
   setTimeout(() => {
     btn.style.transform = 'rotate(0deg)';
     btn.style.opacity = '0.7';
@@ -1230,7 +1257,7 @@ $('#btn-sync-leaderboard').addEventListener('click', async () => {
 setInterval(() => {
   const isARActive = $('#ar-screen').style.display === 'block';
   const isAdminActive = $('#setup-screen').style.display === 'block' && state.isAdmin;
-  
+
   if (isARActive && state.activeEventId) {
     getEventsFromDB().then(evs => {
       state.events = evs;
@@ -1270,7 +1297,7 @@ function initWelcomeAnimation() {
     transparent: true,
     opacity: 0.8
   });
-  
+
   const mesh = new THREE.Mesh(geometry, material);
   scene.add(mesh);
 
@@ -1321,7 +1348,7 @@ function updateMarkerStep() {
   const m = state.markers[state.currentMarkerIndex];
   $('#current-marker-num').textContent = state.currentMarkerIndex + 1;
   $('#total-marker-num').textContent = state.markerCount;
-  
+
   $('#marker-placeholder').style.display = 'none';
   $('#marker-preview-img').style.display = 'none';
   $('#camera-capture-area').style.display = 'none';
@@ -1344,7 +1371,7 @@ function updateMarkerStep() {
   $('#scale-value').textContent = m.scale.toFixed(2);
   $('#overlay-text').value = m.text || '';
   $('#overlay-hint').value = m.hint || '';
-  
+
   $$('.color-opt').forEach(opt => opt.classList.toggle('active', opt.dataset.color === m.color));
   checkMarkerComplete();
 }
@@ -1390,10 +1417,10 @@ $('#btn-open-camera').addEventListener('click', async () => {
 $('#btn-capture').addEventListener('click', () => {
   const video = $('#camera-feed');
   const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth; 
+  canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   canvas.getContext('2d').drawImage(video, 0, 0);
-  
+
   const img = new Image();
   img.src = canvas.toDataURL('image/png');
   img.onload = () => {
@@ -1402,17 +1429,17 @@ $('#btn-capture').addEventListener('click', () => {
       state.cameraStream.getTracks().forEach(t => t.stop());
       state.cameraStream = null;
     }
-    
+
     // Switch to crop view
     initCrop(img, (croppedUrl) => {
       const m = state.markers[state.currentMarkerIndex];
       m.dataUrl = croppedUrl;
       const croppedImg = new Image();
       croppedImg.src = croppedUrl;
-      croppedImg.onload = () => { 
-        m.image = croppedImg; 
-        updateMarkerStep(); 
-        showPanel(sections.config); 
+      croppedImg.onload = () => {
+        m.image = croppedImg;
+        updateMarkerStep();
+        showPanel(sections.config);
       };
     });
   };
@@ -1435,7 +1462,7 @@ $('#model-file-input').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (file) {
     const m = state.markers[state.currentMarkerIndex];
-    m.modelFile = file; 
+    m.modelFile = file;
     m.modelUrl = URL.createObjectURL(file);
     updateMarkerStep();
   }
@@ -1456,6 +1483,67 @@ $('#overlay-hint').addEventListener('input', () => {
   state.markers[state.currentMarkerIndex].hint = $('#overlay-hint').value;
 });
 
+// ─── AI Riddle Generation ──────────────────────────────────────
+async function generateAIHint() {
+  const btn = $('#btn-generate-ai-hint');
+  const textarea = $('#overlay-hint');
+  const marker = state.markers[state.currentMarkerIndex];
+
+  if (!marker || !marker.dataUrl) {
+    alert("Please upload or capture a marker image first!");
+    return;
+  }
+
+  if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY') {
+    alert("Gemini API Key missing! Please add it to config.js.");
+    return;
+  }
+
+  btn.disabled = true;
+  const originalText = btn.innerHTML;
+  btn.innerHTML = 'Generating...';
+
+  try {
+    // Extract base64 from dataUrl
+    const base64Data = marker.dataUrl.split(',')[1];
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: "You are an AR Treasure Hunt master. Look at this image and generate a 2-sentence poetic, cryptic riddle that leads a player to this location without naming it directly. Output ONLY the riddle text." },
+            { inlineData: { mimeType: "image/png", data: base64Data } }
+          ]
+        }]
+      })
+    });
+
+    const data = await response.json();
+    console.log("Gemini API Response:", data);
+
+    if (data.error) {
+      throw new Error(data.error.message);
+    }
+
+    const riddle = data.candidates[0].content.parts[0].text.trim();
+
+    textarea.value = riddle;
+    marker.hint = riddle;
+    console.log("AI Riddle Generated:", riddle);
+
+  } catch (error) {
+    console.error("AI Generation Error:", error);
+    alert("Failed to generate riddle. Check console for details.");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+  }
+}
+
+$('#btn-generate-ai-hint').addEventListener('click', generateAIHint);
+
 $$('.color-opt').forEach(opt => opt.addEventListener('click', () => {
   state.markers[state.currentMarkerIndex].color = opt.dataset.color;
   updateMarkerStep();
@@ -1463,19 +1551,19 @@ $$('.color-opt').forEach(opt => opt.addEventListener('click', () => {
 
 // ─── Step Navigation ──────────────────────────────────────────
 $('#btn-next-marker').addEventListener('click', () => {
-  if (state.currentMarkerIndex < state.markerCount - 1) { 
-    state.currentMarkerIndex++; 
-    updateMarkerStep(); 
-  } else { 
-    renderReview(); 
-    showPanel(sections.review); 
+  if (state.currentMarkerIndex < state.markerCount - 1) {
+    state.currentMarkerIndex++;
+    updateMarkerStep();
+  } else {
+    renderReview();
+    showPanel(sections.review);
   }
 });
 
 $('#btn-back-marker').addEventListener('click', () => {
-  if (state.currentMarkerIndex > 0) { 
-    state.currentMarkerIndex--; 
-    updateMarkerStep(); 
+  if (state.currentMarkerIndex > 0) {
+    state.currentMarkerIndex--;
+    updateMarkerStep();
   } else showPanel(state.isAdmin ? sections.adminCount : sections.welcome);
 });
 
@@ -1506,9 +1594,9 @@ $('#btn-test-ar').addEventListener('click', startAR);
 
 $('#btn-stop-ar').addEventListener('click', () => {
   stopAR();
-  sections.ar.style.display = 'none'; 
-  sections.setup.style.display = ''; 
-  
+  sections.ar.style.display = 'none';
+  sections.setup.style.display = '';
+
   if (state.isAdmin) {
     // If admin is just testing and exits, go back to review so they can edit or save
     showPanel(sections.review);
@@ -1516,14 +1604,14 @@ $('#btn-stop-ar').addEventListener('click', () => {
     // End player timer and update endTime if they hadn't finished
     if (questTimerInterval) clearInterval(questTimerInterval);
     if (state.activePlayerRecord && !state.activePlayerRecord.endTime) {
-       state.activePlayerRecord.endTime = Date.now();
-       const ev = state.events.find(e => e.id === state.activeEventId);
-       if(ev) updateEventInDB(ev.id, ev);
+      state.activePlayerRecord.endTime = Date.now();
+      const ev = state.events.find(e => e.id === state.activeEventId);
+      if (ev) updateEventInDB(ev.id, ev);
     }
-    
+
     // Check if #quest-complete-overlay is visible and hide it if so
     $('#quest-complete-overlay').style.display = 'none';
-    
+
     // Players go to Post-Hunt Leaderboard
     window.showPostHuntLeaderboard();
   }
@@ -1531,7 +1619,7 @@ $('#btn-stop-ar').addEventListener('click', () => {
 
 $('#btn-ar-save').addEventListener('click', async () => {
   $('#btn-ar-save').textContent = 'Saving...';
-  
+
   try {
     // Save the event to DB (uploads files)
     const savedData = await saveEventToDB(state.eventName, state.markers, state.timeLimit, state.theme);
@@ -1541,7 +1629,7 @@ $('#btn-ar-save').addEventListener('click', async () => {
         id: savedData.id,
         ...savedData.data
       });
-      
+
       // Clean up and return to dashboard
       $('#btn-ar-save').textContent = 'Save Event';
       renderAdminDashboard();
@@ -1553,13 +1641,13 @@ $('#btn-ar-save').addEventListener('click', async () => {
     console.error(err);
     alert("Upload failed! Please ensure your 'ar-assets' bucket has an RLS policy allowing INSERTs.");
   }
-  
+
   $('#btn-ar-save').textContent = 'Save Event';
-  
+
   stopAR();
-  sections.ar.style.display = 'none'; 
-  sections.setup.style.display = ''; 
-  
+  sections.ar.style.display = 'none';
+  sections.setup.style.display = '';
+
   renderAdminDashboard();
   showPanel(sections.adminDashboard);
 });
@@ -1592,10 +1680,10 @@ $('#btn-submit-feedback').addEventListener('click', async () => {
   });
 
   console.log("Research Data Collected:", ratings);
-  
+
   // Save to Supabase
   await saveFeedbackToDB(ratings);
-  
+
   // Return to portal after feedback
   alert("Thank you for participating in our research! Your feedback has been saved to our database.");
   window.location.reload();
@@ -1618,22 +1706,22 @@ let currentPhotoDataUrl = null;
 // Automated Dashcam Capture (Silent)
 window.handleDashcamPhoto = async (dataUrl, markerNumber) => {
   if (!dataUrl) return;
-  
+
   // Upload to Supabase Storage
   const publicUrl = await uploadBase64Image(dataUrl, 'live-photos');
   if (!publicUrl) return;
-  
+
   if (!state.activePlayerRecord.capturedPhotos) {
     state.activePlayerRecord.capturedPhotos = [];
   }
-  
+
   state.activePlayerRecord.capturedPhotos.push({
     marker: markerNumber,
     imageUrl: publicUrl,
     timestamp: Date.now(),
     type: 'dashcam'
   });
-  
+
   const ev = state.events.find(e => e.id === state.activeEventId);
   if (ev) {
     const pIdx = ev.players.findIndex(p => p.name === state.activePlayerRecord.name);
@@ -1647,14 +1735,14 @@ window.handleDashcamPhoto = async (dataUrl, markerNumber) => {
 // Selfie Mode Trigger
 $('#btn-hud-take-photo').addEventListener('click', async () => {
   $('#btn-hud-take-photo').style.display = 'none';
-  
+
   setTimeout(async () => {
     const dataUrl = await captureARImage();
     if (dataUrl) {
       currentPhotoDataUrl = dataUrl;
       // We don't have the explicit marker number here, so we derive it from the progress
       currentPhotoMarkerNumber = state.activePlayerRecord.detectedMarkers ? state.activePlayerRecord.detectedMarkers.length : 1;
-      
+
       $('#ar-photo-preview').src = dataUrl;
       $('#ar-photo-title').textContent = "Selfie Captured!";
       $('#ar-photo-confirm-overlay').style.display = 'flex';
@@ -1674,27 +1762,27 @@ $('#btn-photo-cancel').addEventListener('click', () => {
 // Post Selfie to Live Feed
 $('#btn-photo-post').addEventListener('click', async () => {
   if (!currentPhotoDataUrl) return;
-  
+
   const btn = $('#btn-photo-post');
   const originalText = btn.textContent;
   btn.textContent = "Uploading...";
   btn.disabled = true;
-  
+
   // Upload to Supabase Storage
   const publicUrl = await uploadBase64Image(currentPhotoDataUrl, 'live-photos');
-  
+
   if (publicUrl) {
     if (!state.activePlayerRecord.capturedPhotos) {
       state.activePlayerRecord.capturedPhotos = [];
     }
-    
+
     state.activePlayerRecord.capturedPhotos.push({
       marker: currentPhotoMarkerNumber,
       imageUrl: publicUrl,
       timestamp: Date.now(),
       type: 'selfie'
     });
-    
+
     const ev = state.events.find(e => e.id === state.activeEventId);
     if (ev) {
       const pIdx = ev.players.findIndex(p => p.name === state.activePlayerRecord.name);

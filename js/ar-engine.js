@@ -119,6 +119,34 @@ async function initARSession() {
         if (!state.activePlayerRecord.detectedMarkers) {
           state.activePlayerRecord.detectedMarkers = [];
         }
+
+        // --- BLOCKCHAIN VALIDATION ---
+        const foundCount = state.activePlayerRecord.detectedMarkers.length;
+        let expectedMarkerIndex = foundCount; // Default linear fallback
+        
+        if (state.activePlayerRecord.customPath) {
+          expectedMarkerIndex = state.activePlayerRecord.customPath[foundCount];
+        }
+
+        if (i !== expectedMarkerIndex) {
+          console.warn(`Cheating attempt or wrong marker! Expected index ${expectedMarkerIndex}, scanned ${i}`);
+          
+          // Show non-obtrusive warning badge
+          const label = $('#tracking-label');
+          if (label) {
+            label.textContent = 'WRONG CLUE';
+            label.style.color = '#f87171'; // Red
+            setTimeout(() => {
+              if (label.textContent === 'WRONG CLUE') {
+                label.textContent = 'Scanning...';
+                label.style.color = '';
+              }
+            }, 3000);
+          }
+          return; // STOP! Do not record this scan.
+        }
+        // -----------------------------
+
         const markerNumber = i + 1;
         if (!state.activePlayerRecord.detectedMarkers.includes(markerNumber)) {
           state.activePlayerRecord.detectedMarkers.push(markerNumber);
