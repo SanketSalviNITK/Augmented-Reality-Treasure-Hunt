@@ -84,16 +84,19 @@ async function initSystem() {
 
   // 2. Try fetching from Vercel API (if deployed)
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.log("Attempting to fetch remote config from Vercel...");
     try {
       const response = await fetch('/api/config');
       if (response.ok) {
         const remoteConfig = await response.json();
-        console.log("Configuration loaded from Vercel environment.");
+        console.log("✅ Configuration successfully loaded from Vercel API.");
         state.config = { ...state.config, ...remoteConfig };
         SUPABASE_URL = remoteConfig.SUPABASE_URL;
+      } else {
+        console.warn(`⚠️ Vercel API returned status: ${response.status}. Falling back to other methods.`);
       }
     } catch (e) {
-      // Not on Vercel or API failed, ignore silently
+      console.log("ℹ️ Not running on Vercel or API route not found. Error:", e.message);
     }
   }
 
