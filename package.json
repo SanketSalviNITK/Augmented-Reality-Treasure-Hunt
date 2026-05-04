@@ -4,8 +4,7 @@
   "description": "AR Treasure Hunt application with AI and Blockchain features.",
   "main": "main.js",
   "scripts": {
-    "start": "serve .",
-    "build": "echo 'No build step required for static assets'"
+    "start": "serve ."
   },
   "dependencies": {
     "serve": "^14.2.0"
