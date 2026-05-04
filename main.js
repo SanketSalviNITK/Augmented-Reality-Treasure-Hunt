@@ -86,7 +86,7 @@ async function initSystem() {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.log("Attempting to fetch remote config from Vercel...");
     try {
-      const response = await fetch('/api/config');
+      const response = await fetch('/api/get-config');
       if (response.ok) {
         const remoteConfig = await response.json();
         console.log("✅ Configuration successfully loaded from Vercel API.");
