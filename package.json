@@ -1,0 +1,16 @@
+{
+  "name": "augmented-reality-treasure-hunt",
+  "version": "1.0.0",
+  "description": "AR Treasure Hunt application with AI and Blockchain features.",
+  "main": "main.js",
+  "scripts": {
+    "start": "serve .",
+    "build": "echo 'No build step required for static assets'"
+  },
+  "dependencies": {
+    "serve": "^14.2.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

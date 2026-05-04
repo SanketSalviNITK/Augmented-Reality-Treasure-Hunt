@@ -77,21 +77,54 @@ const landingRoot = $('#landing-root');
 
 // Initial System Check
 async function initSystem() {
-  // Check for dynamic config in state or config.js
+  console.log("Checking system configuration...");
+  
+  // 1. Check for dynamic config in state
   let { SUPABASE_URL, SUPABASE_ANON_KEY } = state.config;
 
-  // If not in state, check if we can import from config.js (if not empty)
+  // 2. Try fetching from Vercel API (if deployed)
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    try {
+      const response = await fetch('/api/config');
+      if (response.ok) {
+        const remoteConfig = await response.json();
+        console.log("Configuration loaded from Vercel environment.");
+        state.config = { ...state.config, ...remoteConfig };
+        SUPABASE_URL = remoteConfig.SUPABASE_URL;
+      }
+    } catch (e) {
+      // Not on Vercel or API failed, ignore silently
+    }
+  }
+
+  // 3. Check localStorage (Persistence for manual setup)
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    const savedUrl = localStorage.getItem('AR_SUPABASE_URL');
+    const savedKey = localStorage.getItem('AR_SUPABASE_KEY');
+    const savedGemini = localStorage.getItem('AR_GEMINI_KEY');
+    
+    if (savedUrl && savedKey) {
+      console.log("Configuration loaded from browser storage.");
+      state.config.SUPABASE_URL = savedUrl;
+      state.config.SUPABASE_ANON_KEY = savedKey;
+      state.config.GEMINI_API_KEY = savedGemini || '';
+      SUPABASE_URL = savedUrl;
+    }
+  }
+
+  // 4. Fallback: Check if we can import from config.js (local dev)
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     try {
       const config = await import('./config.js');
       if (config.SUPABASE_URL && config.SUPABASE_ANON_KEY) {
+        console.log("Configuration loaded from local config.js.");
         state.config.SUPABASE_URL = config.SUPABASE_URL;
         state.config.SUPABASE_ANON_KEY = config.SUPABASE_ANON_KEY;
         state.config.GEMINI_API_KEY = config.GEMINI_API_KEY || '';
         SUPABASE_URL = config.SUPABASE_URL;
       }
     } catch (e) {
-      console.log("No config.js found or invalid.");
+      console.log("No local config.js found.");
     }
   }
 
@@ -133,9 +166,15 @@ $('#btn-init-system').addEventListener('click', () => {
     return;
   }
 
+  // Save to state
   state.config.SUPABASE_URL = url;
   state.config.SUPABASE_ANON_KEY = key;
   state.config.GEMINI_API_KEY = gemini;
+
+  // Save to localStorage for persistence
+  localStorage.setItem('AR_SUPABASE_URL', url);
+  localStorage.setItem('AR_SUPABASE_KEY', key);
+  localStorage.setItem('AR_GEMINI_KEY', gemini);
 
   finishLoading();
 });
