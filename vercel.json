@@ -1,8 +1,17 @@
 {
   "version": 2,
   "name": "ar-treasure-hunt",
+  "builds": [
+    { "src": "api/**/*.js", "use": "@vercel/node" },
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "js/**/*.js", "use": "@vercel/static" },
+    { "src": "css/**/*.css", "use": "@vercel/static" },
+    { "src": "assets/**/*", "use": "@vercel/static" },
+    { "src": "main.js", "use": "@vercel/static" },
+    { "src": "config.js", "use": "@vercel/static" }
+  ],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" }
+    { "source": "/api/(.*)", "destination": "api/$1.js" }
   ],
   "headers": [
     {
