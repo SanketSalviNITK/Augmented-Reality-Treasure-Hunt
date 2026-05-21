@@ -120,6 +120,8 @@ async function initARSession() {
           state.activePlayerRecord.detectedMarkers = [];
         }
 
+        const markerNumber = i + 1;
+
         // --- BLOCKCHAIN VALIDATION ---
         const foundCount = state.activePlayerRecord.detectedMarkers.length;
         let expectedMarkerIndex = foundCount; // Default linear fallback
@@ -129,8 +131,26 @@ async function initARSession() {
         }
 
         if (i !== expectedMarkerIndex) {
-          console.warn(`Cheating attempt or wrong marker! Expected index ${expectedMarkerIndex}, scanned ${i}`);
+          // If this marker was already scanned earlier, allow them to view it
+          if (state.activePlayerRecord.detectedMarkers.includes(markerNumber)) {
+            anchor.group.children.forEach(child => child.visible = true);
+            return;
+          }
+
+          console.warn(`Wrong marker sequence! Expected index ${expectedMarkerIndex}, scanned ${i}`);
           
+          // Play Wrong Clue Sound
+          if (state.audioEnabled) {
+            const sfxWrong = document.getElementById('sfx-wrong');
+            if (sfxWrong) {
+              sfxWrong.currentTime = 0;
+              sfxWrong.play().catch(err => console.log("Audio play failed:", err));
+            }
+          }
+
+          // Hide all 3D contents for this wrong marker
+          anchor.group.children.forEach(child => child.visible = false);
+
           // Show non-obtrusive warning badge
           const label = $('#tracking-label');
           if (label) {
@@ -145,9 +165,11 @@ async function initARSession() {
           }
           return; // STOP! Do not record this scan.
         }
+        
+        // Correct next marker! Make sure children are visible.
+        anchor.group.children.forEach(child => child.visible = true);
         // -----------------------------
 
-        const markerNumber = i + 1;
         if (!state.activePlayerRecord.detectedMarkers.includes(markerNumber)) {
           state.activePlayerRecord.detectedMarkers.push(markerNumber);
           
@@ -178,13 +200,15 @@ async function initARSession() {
             }
           }
 
-          // Trigger Silent Dashcam Capture
-          setTimeout(async () => {
-            const photoDataUrl = await captureARImage();
-            if (window.handleDashcamPhoto) {
-              window.handleDashcamPhoto(photoDataUrl, markerNumber);
-            }
-          }, 500);
+          // Trigger Silent Dashcam Capture (Only if enabled in Creator Settings)
+          if (state.settings && state.settings.silentDashcam !== false) {
+            setTimeout(async () => {
+              const photoDataUrl = await captureARImage();
+              if (window.handleDashcamPhoto) {
+                window.handleDashcamPhoto(photoDataUrl, markerNumber);
+              }
+            }, 500);
+          }
 
           // Update Hunter Leaderboard & Clues
           if (window.renderHunterLeaderboard) window.renderHunterLeaderboard();

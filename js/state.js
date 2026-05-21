@@ -26,6 +26,16 @@ export const state = {
   activeEventId: null,
   audioEnabled: true,
 
+  // Research & Framework Settings
+  settings: JSON.parse(localStorage.getItem('arthunt_settings')) || {
+    silentDashcam: true,
+    telemetryFrequency: 1000,
+    mandatoryConsent: true,
+    anonymizeHunters: false,
+    globalQuestTimer: 15,
+    randomizedPathing: true
+  },
+
   // Dynamic Configuration
   config: {
     GEMINI_API_KEY: '',

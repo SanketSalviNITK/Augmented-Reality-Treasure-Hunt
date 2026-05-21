@@ -9,11 +9,14 @@
 
 ## 🧬 Research Overview
 
-This platform was developed to address three critical gaps in modern Augmented Reality (AR) research:
+ARTHunt was developed to address three critical gaps in modern Augmented Reality (AR) research:
 
 1.  **Accessibility Friction (HCI Focus):** Investigating if Web-based AR (browser-only) significantly increases participant conversion compared to native apps that require installation.
 2.  **Interaction Sustainability:** Evaluating the effectiveness of the **"Power Saver" (Camera Toggle)** mechanism in reducing device heat and battery drain during prolonged outdoor quests.
 3.  **Sequential Cognitive Engagement:** Studying how a **Dynamic Clue/Riddle System** impacts spatial problem-solving and narrative flow in physical environments.
+
+**Official Live Instance:** [https://augmented-reality-treasure-hunt.vercel.app/](https://augmented-reality-treasure-hunt.vercel.app/)
+
 
 ---
 
@@ -63,12 +66,14 @@ npx serve -l 3000
 ---
 
 ## 📖 Recommended Research Workflow
+To ensure reproducibility in behavioral studies, researchers should follow this verified workflow:
 
-1.  **Setup:** Creator Studio -> Define Event -> Upload Markers -> **Set Riddles**.
-2.  **Deployment:** Share the Event Name with participants.
-3.  **Collection:** Participants join via their browser, solve riddles, and complete the quest.
-4.  **Analysis:** Admin Dashboard -> Select Event -> **Click "Export"**.
-5.  **Synthesis:** Use the generated CSV data to analyze navigation speed, completion rates, and immersion feedback.
+1.  **Backend Provisioning:** Initialize a Supabase project and execute `schema.sql`.
+2.  **Configuration:** Copy `.env.example` to `.env` (or `config.js.example` to `config.js`) and input credentials.
+3.  **Deployment:** Run `npm run build` and deploy the `dist/` folder to a static host (e.g., Vercel).
+4.  **Event Design:** Use the **Creator Studio** to define image targets, riddles, and 3D rewards.
+5.  **Data Collection:** Participants join via their browser, solve riddles, and complete the quest. The **Silent Dashcam** captures evidence automatically.
+6.  **Scholarly Export:** Use the **Admin Dashboard** to export the quest telemetry as a research-ready CSV for analysis in R or SPSS.
 
 ---
 

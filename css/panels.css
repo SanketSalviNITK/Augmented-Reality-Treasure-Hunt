@@ -54,6 +54,11 @@
   max-width: 900px; /* Even wider for complex configuration steps */
 }
 
+#wizard.ultra-wide {
+  max-width: 1400px;
+}
+
+
 #step-indicators {
   display: flex;
   align-items: center;

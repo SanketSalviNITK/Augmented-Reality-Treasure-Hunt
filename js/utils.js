@@ -29,11 +29,17 @@ export function showPanel(panel) {
   if (wizard) {
     if (panel === sections.config || panel === sections.review) {
       wizard.classList.add('wide');
+      wizard.classList.remove('ultra-wide');
+    } else if (panel === sections.adminDashboard || panel === sections.liveMonitor) {
+      wizard.classList.add('ultra-wide');
+      wizard.classList.remove('wide');
     } else {
       wizard.classList.remove('wide');
+      wizard.classList.remove('ultra-wide');
     }
   }
 }
+
 
 export function roundRect(ctx, x, y, w, h, r, f) {
   ctx.beginPath(); 

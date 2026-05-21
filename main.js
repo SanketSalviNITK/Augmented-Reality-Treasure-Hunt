@@ -676,8 +676,13 @@ document.querySelectorAll('.dash-nav-btn').forEach(btn => {
     e.target.style.background = 'rgba(255,255,255,0.05)';
     e.target.style.color = 'white';
 
+    const activeTab = e.target.dataset.tab;
     document.querySelectorAll('.dash-tab').forEach(t => t.style.display = 'none');
-    document.getElementById(e.target.dataset.tab).style.display = 'block';
+    document.getElementById(activeTab).style.display = 'block';
+
+    if (activeTab === 'tab-settings' && window.populateSettingsUI) {
+      window.populateSettingsUI();
+    }
   });
 });
 
@@ -839,19 +844,23 @@ window.joinEvent = async (index) => {
   // Find or create player record
   let playerRecord = ev.players.find(p => p.name === state.player.name);
   if (!playerRecord) {
-    // Generate randomized path (Blockchain-like sequence)
-    // Marker 0 is always the starting point
+    // Generate sequential or randomized path (depending on setting)
     const markerCount = ev.markers.length;
-    const targets = Array.from({ length: markerCount - 1 }, (_, i) => i + 1); // [1, 2, 3, ...]
+    let customPath = [];
 
-    // Fisher-Yates Shuffle
-    for (let i = targets.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [targets[i], targets[j]] = [targets[j], targets[i]];
+    if (state.settings && state.settings.randomizedPathing === false) {
+      customPath = Array.from({ length: markerCount }, (_, i) => i);
+      console.log(`Generated Linear Sequential Path for ${state.player.name}:`, customPath);
+    } else {
+      const targets = Array.from({ length: markerCount - 1 }, (_, i) => i + 1); // [1, 2, 3, ...]
+      // Fisher-Yates Shuffle
+      for (let i = targets.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [targets[i], targets[j]] = [targets[j], targets[i]];
+      }
+      customPath = [0, ...targets];
+      console.log(`Generated Blockchain Path for ${state.player.name}:`, customPath);
     }
-
-    const customPath = [0, ...targets];
-    console.log(`Generated Blockchain Path for ${state.player.name}:`, customPath);
 
     playerRecord = {
       name: state.player.name,
@@ -877,19 +886,36 @@ window.joinEvent = async (index) => {
   state.timeLimit = ev.timeLimit || 0;
 
   // Update Hunter HUD Name & Avatar
-  if ($('#ar-player-name')) $('#ar-player-name').textContent = state.player.name;
+  const isAnonymized = state.settings && state.settings.anonymizeHunters;
+  const displayName = isAnonymized ? `Hunter_${playerRecord.avatarId || 'X'}` : state.player.name;
+  if ($('#ar-player-name')) $('#ar-player-name').textContent = displayName;
   const avatarImg = document.querySelector('#ar-hud .avatar-icon');
   if (avatarImg && playerRecord.avatarId) {
     avatarImg.src = `assets/avatar-${playerRecord.avatarId}.svg`;
   }
 
-  // Initialize and show Hunter Leaderboard
-  window.renderHunterLeaderboard();
-  window.updateHUDClue();
-  window.startQuestTimer();
-  window.applyTheme(ev.theme);
-
-  startAR();
+  // --- MANDATORY E-CONSENT FLAG CHECK ---
+  if (state.settings && state.settings.mandatoryConsent !== false) {
+    $('#consent-overlay').style.display = 'flex';
+    
+    // Save pending start references
+    window.pendingJoinStart = () => {
+      $('#consent-overlay').style.display = 'none';
+      // Initialize and show Hunter Leaderboard
+      window.renderHunterLeaderboard();
+      window.updateHUDClue();
+      window.startQuestTimer();
+      window.applyTheme(ev.theme);
+      startAR();
+    };
+  } else {
+    // Initialize and show Hunter Leaderboard
+    window.renderHunterLeaderboard();
+    window.updateHUDClue();
+    window.startQuestTimer();
+    window.applyTheme(ev.theme);
+    startAR();
+  }
 };
 
 window.updateHUDClue = () => {
@@ -1114,6 +1140,8 @@ window.renderLiveMonitorLeaderboard = async () => {
     const total = ev.markers ? ev.markers.length : 0;
     const isFinished = count === total && total > 0;
     const avatarUrl = p.avatarId ? `assets/avatar-${p.avatarId}.svg` : 'assets/avatar-1.svg';
+    const isAnonymized = state.settings && state.settings.anonymizeHunters;
+    const displayName = isAnonymized ? `Hunter_${p.avatarId || 'X'}` : p.name;
 
     return `
       <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: rgba(255,255,255,0.02); border-left: 2px solid ${idx < 3 ? 'var(--accent-emerald)' : 'transparent'}; border-radius: 6px;">
@@ -1121,7 +1149,7 @@ window.renderLiveMonitorLeaderboard = async () => {
           <span style="font-size: 0.8rem; font-weight: 800; color: ${idx < 3 ? 'var(--accent-emerald)' : 'var(--text-muted)'}; min-width: 16px;">#${idx + 1}</span>
           <img src="${avatarUrl}" style="width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.1);">
           <div style="display: flex; flex-direction: column;">
-            <span style="font-size: 0.85rem; color: white; font-weight: 700;">${isFinished ? '🏆 ' : ''}${p.name}</span>
+            <span style="font-size: 0.85rem; color: white; font-weight: 700;">${isFinished ? '🏆 ' : ''}${displayName}</span>
             <span style="font-size: 0.65rem; color: var(--text-muted);">Found: ${count}/${total}</span>
           </div>
         </div>
@@ -1137,8 +1165,10 @@ window.renderLiveMonitorLeaderboard = async () => {
   ev.players.forEach(p => {
     if (p.capturedPhotos) {
       p.capturedPhotos.forEach(photo => {
+        const isAnonymized = state.settings && state.settings.anonymizeHunters;
+        const displayName = isAnonymized ? `Hunter_${p.avatarId || 'X'}` : p.name;
         allPhotos.push({
-          playerName: p.name,
+          playerName: displayName,
           avatarId: p.avatarId,
           ...photo
         });
@@ -1236,6 +1266,8 @@ window.renderHunterLeaderboard = async () => {
     const total = ev.markers ? ev.markers.length : 0;
     const isFinished = count === total && total > 0;
     const avatarUrl = p.avatarId ? `assets/avatar-${p.avatarId}.svg` : 'assets/avatar-1.svg';
+    const isAnonymized = state.settings && state.settings.anonymizeHunters;
+    const displayName = isAnonymized ? `Hunter_${p.avatarId || 'X'}` : p.name;
 
     return `
       <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: ${isMe ? 'rgba(6, 182, 212, 0.1)' : 'transparent'}; border-left: 2px solid ${isMe ? 'var(--accent-cyan)' : 'transparent'};">
@@ -1243,7 +1275,7 @@ window.renderHunterLeaderboard = async () => {
           <span style="font-size: 0.7rem; font-weight: 800; color: ${idx < 3 ? 'var(--accent-emerald)' : 'var(--text-muted)'};">#${idx + 1}</span>
           <img src="${avatarUrl}" style="width: 18px; height: 18px; border-radius: 50%; background: rgba(255,255,255,0.1);">
           <span style="font-size: 0.75rem; color: ${isMe ? 'white' : 'var(--text-secondary)'}; font-weight: ${isMe ? '700' : '500'};">
-            ${isFinished ? '🏆 ' : ''}${p.name} ${isMe ? '(YOU)' : ''}
+            ${isFinished ? '🏆 ' : ''}${displayName} ${isMe ? '(YOU)' : ''}
           </span>
         </div>
         <span style="font-size: 0.75rem; font-weight: 800; color: ${isFinished ? 'var(--accent-emerald)' : 'white'};">${count}</span>
@@ -1289,6 +1321,8 @@ window.renderPostHuntLeaderboard = async () => {
     const total = ev.markers ? ev.markers.length : 0;
     const isFinished = count === total && total > 0;
     const avatarUrl = p.avatarId ? `assets/avatar-${p.avatarId}.svg` : 'assets/avatar-1.svg';
+    const isAnonymized = state.settings && state.settings.anonymizeHunters;
+    const displayName = isAnonymized ? `Hunter_${p.avatarId || 'X'}` : p.name;
 
     return `
       <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: ${isMe ? 'rgba(6, 182, 212, 0.15)' : (idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent')}; border-left: 3px solid ${isMe ? 'var(--accent-cyan)' : 'transparent'}; border-bottom: 1px solid rgba(255,255,255,0.05);">
@@ -1297,7 +1331,7 @@ window.renderPostHuntLeaderboard = async () => {
           <img src="${avatarUrl}" style="width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.1);">
           <div style="display: flex; flex-direction: column;">
             <span style="font-size: 0.95rem; color: ${isMe ? 'white' : 'var(--text-secondary)'}; font-weight: ${isMe ? '800' : '600'};">
-              ${isFinished ? '🏆 ' : ''}${p.name} ${isMe ? '(YOU)' : ''}
+              ${isFinished ? '🏆 ' : ''}${displayName} ${isMe ? '(YOU)' : ''}
             </span>
             <span style="font-size: 0.7rem; color: var(--text-muted);">Found: ${count}/${total} | Hints: ${p.hintsUsed || 0}</span>
           </div>
@@ -1763,11 +1797,21 @@ document.querySelectorAll('.rating-btn').forEach(btn => {
 
 $('#btn-submit-feedback').addEventListener('click', async () => {
   const ratings = {};
+  let allFilled = true;
   document.querySelectorAll('.question-item').forEach(item => {
     const question = item.dataset.question;
     const activeBtn = item.querySelector('.rating-btn.active');
-    ratings[question] = activeBtn ? activeBtn.dataset.value : 0;
+    if (!activeBtn) {
+      allFilled = false;
+    } else {
+      ratings[question] = parseInt(activeBtn.dataset.value || 0);
+    }
   });
+
+  if (!allFilled) {
+    alert("Please rate all categories to submit your research data!");
+    return;
+  }
 
   console.log("Research Data Collected:", ratings);
 
@@ -1888,3 +1932,111 @@ $('#btn-photo-post').addEventListener('click', async () => {
   $('#ar-photo-confirm-overlay').style.display = 'none';
   $('#btn-hud-take-photo').style.display = 'flex';
 });
+
+// ─── Settings Panel Logic ────────────────────────────────────
+window.populateSettingsUI = () => {
+  if (!state.settings) return;
+  const silentDashcam = document.getElementById('setting-silent-dashcam');
+  const telemetryFreq = document.getElementById('setting-telemetry-freq');
+  const telemetryVal = document.getElementById('setting-telemetry-val');
+  const consent = document.getElementById('setting-consent');
+  const anonymize = document.getElementById('setting-anonymize');
+  const timer = document.getElementById('setting-timer');
+  const randomPath = document.getElementById('setting-random-path');
+
+  if (silentDashcam) silentDashcam.checked = state.settings.silentDashcam;
+  if (telemetryFreq) {
+    telemetryFreq.value = state.settings.telemetryFrequency || 1000;
+    if (telemetryVal) telemetryVal.textContent = `${telemetryFreq.value}ms`;
+  }
+  if (consent) consent.checked = state.settings.mandatoryConsent;
+  if (anonymize) anonymize.checked = state.settings.anonymizeHunters;
+  if (timer) timer.value = state.settings.globalQuestTimer || 15;
+  if (randomPath) randomPath.checked = state.settings.randomizedPathing;
+};
+
+// Telemetry Slider Real-Time Label Update
+const freqSlider = document.getElementById('setting-telemetry-freq');
+if (freqSlider) {
+  freqSlider.addEventListener('input', (e) => {
+    const valSpan = document.getElementById('setting-telemetry-val');
+    if (valSpan) valSpan.textContent = `${e.target.value}ms`;
+  });
+}
+
+// Save Settings Event Handler
+const btnSaveSettings = document.getElementById('btn-save-settings');
+if (btnSaveSettings) {
+  btnSaveSettings.addEventListener('click', () => {
+    const silentDashcam = document.getElementById('setting-silent-dashcam');
+    const telemetryFreq = document.getElementById('setting-telemetry-freq');
+    const consent = document.getElementById('setting-consent');
+    const anonymize = document.getElementById('setting-anonymize');
+    const timer = document.getElementById('setting-timer');
+    const randomPath = document.getElementById('setting-random-path');
+
+    state.settings = {
+      silentDashcam: silentDashcam ? silentDashcam.checked : true,
+      telemetryFrequency: telemetryFreq ? parseInt(telemetryFreq.value) : 1000,
+      mandatoryConsent: consent ? consent.checked : true,
+      anonymizeHunters: anonymize ? anonymize.checked : false,
+      globalQuestTimer: timer ? parseInt(timer.value) : 15,
+      randomizedPathing: randomPath ? randomPath.checked : true
+    };
+
+    // Persist Settings
+    localStorage.setItem('arthunt_settings', JSON.stringify(state.settings));
+
+    alert("Configurations saved and persisted successfully!");
+  });
+}
+
+// Consent Overlay Button Event Handlers
+const btnConsentAgree = document.getElementById('btn-consent-agree');
+if (btnConsentAgree) {
+  btnConsentAgree.addEventListener('click', () => {
+    if (window.pendingJoinStart) {
+      window.pendingJoinStart();
+    }
+  });
+}
+
+const btnConsentDecline = document.getElementById('btn-consent-decline');
+if (btnConsentDecline) {
+  btnConsentDecline.addEventListener('click', () => {
+    $('#consent-overlay').style.display = 'none';
+    alert("Consent declined. You cannot join this research hunt study without consenting.");
+  });
+}
+
+// Export All Telemetry (CSV) Handler
+const btnExportTelemetry = document.getElementById('btn-export-telemetry');
+if (btnExportTelemetry) {
+  btnExportTelemetry.addEventListener('click', () => {
+    if (!state.events || state.events.length === 0) {
+      alert("No research event data found to export.");
+      return;
+    }
+
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Event,Participant,Age,MarkersFound,StartTime,EndTime,TotalTimeSec,HintsUsed,ConsentStatus\n";
+
+    state.events.forEach(ev => {
+      if (ev.players) {
+        ev.players.forEach(p => {
+          const count = p.detectedMarkers ? p.detectedMarkers.length : 0;
+          const timeSec = p.endTime ? Math.floor((p.endTime - p.startTime) / 1000) : "Incomplete";
+          csvContent += `"${ev.name}","${p.name}",${p.age || 'N/A'},${count},"${new Date(p.startTime).toISOString()}",${p.endTime ? `"${new Date(p.endTime).toISOString()}"` : "N/A"},${timeSec},${p.hintsUsed || 0},"Consented"\n`;
+        });
+      }
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `arthunt_telemetry_export_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
+}
