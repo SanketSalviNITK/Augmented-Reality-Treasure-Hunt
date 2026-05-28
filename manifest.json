@@ -1,0 +1,16 @@
+{
+  "name": "AR Treasure Hunt",
+  "short_name": "Treasure Hunt",
+  "description": "An Augmented Reality Treasure Hunt Game",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "536504.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
