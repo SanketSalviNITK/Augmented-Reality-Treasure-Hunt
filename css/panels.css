@@ -393,6 +393,9 @@
   width: 100%;
   padding: 0;
   flex-direction: column;
+  /* .step-panel sets align-items: center, which would collapse the topbar
+     and body to their content width; stretch them to fill the dashboard. */
+  align-items: stretch;
   overflow: hidden;
   height: 80vh;
   max-height: 800px;
