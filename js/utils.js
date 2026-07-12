@@ -41,6 +41,16 @@ export function showPanel(panel) {
 }
 
 
+// Escape user-provided strings before interpolating into innerHTML
+export function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function roundRect(ctx, x, y, w, h, r, f) {
   ctx.beginPath(); 
   ctx.moveTo(x+r, y); 

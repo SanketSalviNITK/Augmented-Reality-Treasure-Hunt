@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 let animationFrameId;
 let isActive = true;
+let resizeHandler = null;
 
 export function initLandingAnimation() {
   const container = document.getElementById('canvas-container');
@@ -195,19 +196,23 @@ export function initLandingAnimation() {
   isActive = true;
   animate();
 
-  window.addEventListener('resize', () => {
+  // Replace any handler from a previous init so we don't accumulate
+  // listeners holding references to disposed scenes
+  if (resizeHandler) window.removeEventListener('resize', resizeHandler);
+  resizeHandler = () => {
     if (!isActive) return;
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    
+
     const isMob = window.innerWidth <= 768;
     const off = isMob ? 3 : 6;
     creatorGroup.position.x = isMob ? 0 : -off;
     hunterGroup.position.x = isMob ? 0 : off;
     creatorLight.position.set(isMob ? 0 : -off, isMob ? off : 3, 4);
     hunterLight.position.set(isMob ? 0 : off, isMob ? -off : 3, 4);
-  });
+  };
+  window.addEventListener('resize', resizeHandler);
 }
 
 export function stopLandingAnimation() {

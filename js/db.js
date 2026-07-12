@@ -1,16 +1,17 @@
 import { state } from './state.js';
 
-const { createClient } = window.supabase;
-
 export let supabaseClient = null;
 
 function ensureClient() {
   if (!supabaseClient) {
+    if (!window.supabase) {
+      throw new Error("Supabase library failed to load. Check your network connection.");
+    }
     const { SUPABASE_URL, SUPABASE_ANON_KEY } = state.config;
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
       throw new Error("Supabase configuration missing!");
     }
-    supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
 }
 

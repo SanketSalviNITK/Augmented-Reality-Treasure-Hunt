@@ -158,7 +158,7 @@ async function initARSession() {
             label.style.color = '#f87171'; // Red
             setTimeout(() => {
               if (label.textContent === 'WRONG CLUE') {
-                label.textContent = 'Scanning...';
+                label.textContent = 'Searching for marker…';
                 label.style.color = '';
               }
             }, 3000);
@@ -189,14 +189,14 @@ async function initARSession() {
                 updateEventInDB(ev.id, ev);
               }
             }
-          });
+          }).catch(err => console.error("DB sync failed", err));
 
           // Play Scan Sound
           if (state.audioEnabled) {
             const sfx = document.getElementById('sfx-scan');
             if (sfx) {
               sfx.currentTime = 0;
-              sfx.play();
+              sfx.play().catch(err => console.log("Audio play failed:", err));
             }
           }
 
@@ -237,14 +237,7 @@ async function initARSession() {
             setTimeout(() => {
               $('#quest-complete-overlay').style.display = 'flex';
               launchConfetti();
-            }, 1500); 
-          }
-
-          if (state.activeEventId) {
-            import('./db.js').then(({ updateEventInDB }) => {
-              const ev = state.events.find(e => e.id === state.activeEventId);
-              if (ev) updateEventInDB(state.activeEventId, ev); 
-            }).catch(err => console.error("DB sync failed", err));
+            }, 1500);
           }
         }
       }

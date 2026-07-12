@@ -3,7 +3,7 @@
    ============================================================ */
 
 import { state, ADMIN_PASSWORD } from './js/state.js';
-import { $, $$, sections, showPanel } from './js/utils.js';
+import { $, $$, sections, showPanel, escapeHtml } from './js/utils.js';
 import { initCrop, setupCropperEvents } from './js/cropper.js';
 import { startAR, stopAR, pauseAR, resumeAR, captureARImage } from './js/ar-engine.js';
 
@@ -131,7 +131,7 @@ async function initSystem() {
     }
   }
 
-  if (!SUPABASE_URL) {
+  if (!state.config.SUPABASE_URL || !state.config.SUPABASE_ANON_KEY) {
     // Show Config UI
     $('#loading-status').style.display = 'none';
     $('#config-setup').style.display = 'block';
@@ -187,16 +187,17 @@ initSystem();
 
 // Audio Prime Helper (HCI: Satisfy Browser Autoplay Policy)
 function primeAudio() {
-  const sounds = ['sfx-scan', 'sfx-victory', 'bg-music'];
+  // Play and immediately pause to unlock the audio context.
+  // bg-music is excluded: starting it is an explicit user choice via the
+  // music toggle / start button, and priming it here would restart music
+  // the user had paused.
+  const sounds = ['sfx-scan', 'sfx-victory', 'sfx-wrong'];
   sounds.forEach(id => {
     const sfx = document.getElementById(id);
     if (sfx) {
-      // Play and immediately pause to unlock the audio context
       sfx.play().then(() => {
-        if (id !== 'bg-music') {
-          sfx.pause();
-          sfx.currentTime = 0;
-        }
+        sfx.pause();
+        sfx.currentTime = 0;
       }).catch(e => console.log(`Audio priming for ${id} active... waiting for interaction.`));
     }
   });
@@ -368,12 +369,17 @@ $('#btn-player-toggle').addEventListener('click', () => {
 
 $('#btn-admin-login').addEventListener('click', async () => {
   if ($('#admin-pass').value === ADMIN_PASSWORD) {
-    // Show spinner if we wanted, but fetching should be quick
     $('#btn-admin-login').innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;border-top-color:#fff;margin:0 auto;"></div>';
-    state.events = await getEventsFromDB();
-    $('#btn-admin-login').innerHTML = 'Admin Login';
-    renderAdminDashboard();
-    showPanel(sections.adminDashboard);
+    try {
+      state.events = await getEventsFromDB();
+      renderAdminDashboard();
+      showPanel(sections.adminDashboard);
+    } catch (err) {
+      console.error('Admin login failed:', err);
+      alert(`Could not load events: ${err.message}`);
+    } finally {
+      $('#btn-admin-login').innerHTML = 'Admin Login';
+    }
   } else {
     $('#login-error').style.display = 'block';
   }
@@ -408,9 +414,16 @@ $('#btn-player-login').addEventListener('click', async () => {
   }
 
   $('#btn-player-login').innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;border-top-color:#fff;margin:0 auto;"></div>';
-  state.events = await getEventsFromDB();
-  $('#btn-player-login').innerHTML = 'Login';
-
+  try {
+    state.events = await getEventsFromDB();
+  } catch (err) {
+    console.error('Player login failed:', err);
+    $('#player-error').textContent = `Could not connect: ${err.message}`;
+    $('#player-error').style.display = 'block';
+    return;
+  } finally {
+    $('#btn-player-login').innerHTML = 'Login';
+  }
 
   if (!state.events || state.events.length === 0) {
     $('#player-error').textContent = 'No active games found. Admin must create one!';
@@ -439,7 +452,6 @@ async function renderAdminDashboard() {
   if (inactiveList) inactiveList.innerHTML = '';
 
   let totalHunters = 0;
-  let activeEventCount = 0;
 
   // Render Event Lists
   if (state.events.length === 0) {
@@ -452,7 +464,6 @@ async function renderAdminDashboard() {
 
       if (ev.players && ev.players.length > 0) {
         totalHunters += ev.players.length;
-        if (isActive) activeEventCount++;
 
         // Sort players for leaderboard: 1. Most markers, 2. Least time
         const sortedPlayers = [...ev.players].sort((a, b) => {
@@ -494,7 +505,7 @@ async function renderAdminDashboard() {
                 <div style="flex: 1;">
                   <div style="font-weight: 600; font-size: 0.9rem; color: white; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                      <span>${p.name}</span>
+                      <span>${escapeHtml(p.name)}</span>
                       ${statusBadge}
                     </div>
                     <span style="color: var(--accent-cyan); font-size: 0.8rem;">Score: ${score}</span>
@@ -522,12 +533,12 @@ async function renderAdminDashboard() {
       card.style.border = '1px solid var(--border-subtle)';
       card.style.overflow = 'hidden';
 
-      const isExpanded = expandedEvents.has(ev.id || index);
+      const isExpanded = expandedEvents.has(String(ev.id || index));
 
       card.innerHTML = `
         <div class="event-card-header" onclick="window.toggleEventDetails(${index}, '${ev.id || index}')" style="cursor: pointer; padding: 16px; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;">
           <div>
-            <h3 style="margin: 0; font-size: 1.1rem; color: white;">${ev.name}</h3>
+            <h3 style="margin: 0; font-size: 1.1rem; color: white;">${escapeHtml(ev.name)}</h3>
             <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: var(--text-secondary);">
               ${ev.markers ? ev.markers.length : 0} Markers • ${ev.players ? ev.players.length : 0} Participants • <span style="color: ${isActive ? 'var(--accent-emerald)' : '#f87171'};">${isActive ? 'ACTIVE' : 'INACTIVE'}</span>
             </p>
@@ -702,6 +713,12 @@ document.querySelectorAll('.sub-tab-btn').forEach(btn => {
   });
 });
 
+// Quote CSV fields so commas/quotes in user-entered names don't break columns
+function csvField(value) {
+  const str = String(value ?? '');
+  return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+}
+
 window.exportEventCSV = (index) => {
   const ev = state.events[index];
   if (!ev.players || ev.players.length === 0) {
@@ -717,7 +734,7 @@ window.exportEventCSV = (index) => {
     headers.push(`Time to M${i} (ms)`);
   }
 
-  let csv = headers.join(',') + "\\n";
+  let csv = headers.join(',') + "\n";
 
   // Add Rows
   ev.players.forEach(p => {
@@ -769,7 +786,7 @@ window.exportEventCSV = (index) => {
       }
     }
 
-    csv += row.join(',') + "\\n";
+    csv += row.map(csvField).join(',') + "\n";
   });
 
   // Create Download
@@ -777,7 +794,7 @@ window.exportEventCSV = (index) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.setAttribute("href", url);
-  link.setAttribute("download", `ARTHunt_Results_${ev.name.replace(/\\s+/g, '_')}.csv`);
+  link.setAttribute("download", `ARTHunt_Results_${ev.name.replace(/\s+/g, '_')}.csv`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
@@ -829,7 +846,7 @@ function renderPlayerDashboard() {
     card.className = 'review-item';
     card.innerHTML = `
       <div class="review-info">
-        <h4>${ev.name}</h4>
+        <h4>${escapeHtml(ev.name)}</h4>
         <p>Treasure Hunt</p>
       </div>
       <button class="btn btn-launch btn-sm" onclick="window.joinEvent(${originalIndex})">Join</button>
@@ -840,6 +857,8 @@ function renderPlayerDashboard() {
 
 window.joinEvent = async (index) => {
   const ev = state.events[index];
+  if (!ev) return;
+  if (!Array.isArray(ev.players)) ev.players = [];
 
   // Find or create player record
   let playerRecord = ev.players.find(p => p.name === state.player.name);
@@ -978,7 +997,7 @@ $('#btn-use-hint').addEventListener('click', async () => {
   if (!state.activePlayerRecord.hintsUsed) state.activePlayerRecord.hintsUsed = 0;
   state.activePlayerRecord.hintsUsed += 1;
 
-  await updateEventInDB(ev.id, ev);
+  if (ev) await updateEventInDB(ev.id, ev);
 });
 
 let questTimerInterval = null;
@@ -1019,7 +1038,7 @@ window.startQuestTimer = () => {
 };
 
 function handleTimesUp() {
-  if (window.stopAR) window.stopAR();
+  stopAR();
   $('#times-up-overlay').style.display = 'flex';
 
   // Save end time
@@ -1149,7 +1168,7 @@ window.renderLiveMonitorLeaderboard = async () => {
           <span style="font-size: 0.8rem; font-weight: 800; color: ${idx < 3 ? 'var(--accent-emerald)' : 'var(--text-muted)'}; min-width: 16px;">#${idx + 1}</span>
           <img src="${avatarUrl}" style="width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.1);">
           <div style="display: flex; flex-direction: column;">
-            <span style="font-size: 0.85rem; color: white; font-weight: 700;">${isFinished ? '🏆 ' : ''}${displayName}</span>
+            <span style="font-size: 0.85rem; color: white; font-weight: 700;">${isFinished ? '🏆 ' : ''}${escapeHtml(displayName)}</span>
             <span style="font-size: 0.65rem; color: var(--text-muted);">Found: ${count}/${total}</span>
           </div>
         </div>
@@ -1201,7 +1220,7 @@ window.renderLiveMonitorLeaderboard = async () => {
         <div style="padding: 12px; display: flex; align-items: center; justify-content: space-between;">
           <div style="display: flex; align-items: center; gap: 8px;">
             <img src="${avatarUrl}" style="width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.1);">
-            <span style="color: white; font-size: 0.85rem; font-weight: 700;">${photo.playerName}</span>
+            <span style="color: white; font-size: 0.85rem; font-weight: 700;">${escapeHtml(photo.playerName)}</span>
           </div>
           <span style="color: var(--accent-cyan); font-size: 0.75rem; font-weight: 800;">M${photo.marker}</span>
         </div>
@@ -1275,7 +1294,7 @@ window.renderHunterLeaderboard = async () => {
           <span style="font-size: 0.7rem; font-weight: 800; color: ${idx < 3 ? 'var(--accent-emerald)' : 'var(--text-muted)'};">#${idx + 1}</span>
           <img src="${avatarUrl}" style="width: 18px; height: 18px; border-radius: 50%; background: rgba(255,255,255,0.1);">
           <span style="font-size: 0.75rem; color: ${isMe ? 'white' : 'var(--text-secondary)'}; font-weight: ${isMe ? '700' : '500'};">
-            ${isFinished ? '🏆 ' : ''}${displayName} ${isMe ? '(YOU)' : ''}
+            ${isFinished ? '🏆 ' : ''}${escapeHtml(displayName)} ${isMe ? '(YOU)' : ''}
           </span>
         </div>
         <span style="font-size: 0.75rem; font-weight: 800; color: ${isFinished ? 'var(--accent-emerald)' : 'white'};">${count}</span>
@@ -1331,7 +1350,7 @@ window.renderPostHuntLeaderboard = async () => {
           <img src="${avatarUrl}" style="width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.1);">
           <div style="display: flex; flex-direction: column;">
             <span style="font-size: 0.95rem; color: ${isMe ? 'white' : 'var(--text-secondary)'}; font-weight: ${isMe ? '800' : '600'};">
-              ${isFinished ? '🏆 ' : ''}${displayName} ${isMe ? '(YOU)' : ''}
+              ${isFinished ? '🏆 ' : ''}${escapeHtml(displayName)} ${isMe ? '(YOU)' : ''}
             </span>
             <span style="font-size: 0.7rem; color: var(--text-muted);">Found: ${count}/${total} | Hints: ${p.hintsUsed || 0}</span>
           </div>
@@ -1376,7 +1395,7 @@ $('#btn-sync-leaderboard').addEventListener('click', async () => {
   }, 500);
 });
 
-// Continuous Auto-sync leaderboard every 10 seconds during AR
+// Continuous Auto-sync leaderboard every 5 seconds during AR
 setInterval(() => {
   const isARActive = $('#ar-screen').style.display === 'block';
   const isAdminActive = $('#setup-screen').style.display === 'block' && state.isAdmin;
@@ -1568,13 +1587,6 @@ $('#btn-capture').addEventListener('click', () => {
   };
 });
 
-// Helper for recapture
-$('#btn-cancel-crop').addEventListener('click', () => {
-  showPanel(sections.config);
-  // If we came from camera, maybe we want to reopen it
-  // For now, just going back is fine as they can click "Camera" again
-});
-
 $$('.toggle-btn').forEach(btn => btn.addEventListener('click', () => {
   state.markers[state.currentMarkerIndex].type = btn.dataset.type;
   updateMarkerStep();
@@ -1703,8 +1715,8 @@ function renderReview() {
       <img src="${m.dataUrl}" class="review-marker-thumb">
       <div class="review-info">
         <h4>Marker ${i + 1}</h4>
-        <p>${m.type === 'model' ? `Model: ${m.modelFile ? m.modelFile.name : 'N/A'}` : `Msg: ${m.text.substring(0, 20)}...`}</p>
-        <p style="font-size: 0.7rem; color: var(--accent-cyan); margin-top: 4px;">Hint: ${m.hint || 'No hint provided'}</p>
+        <p>${m.type === 'model' ? `Model: ${escapeHtml(m.modelFile ? m.modelFile.name : 'N/A')}` : `Msg: ${escapeHtml((m.text || '').substring(0, 20))}...`}</p>
+        <p style="font-size: 0.7rem; color: var(--accent-cyan); margin-top: 4px;">Hint: ${escapeHtml(m.hint || 'No hint provided')}</p>
       </div>
       <span class="review-type-badge">${m.type.toUpperCase()}</span>
     `;
@@ -1875,7 +1887,7 @@ $('#btn-hud-take-photo').addEventListener('click', async () => {
     if (dataUrl) {
       currentPhotoDataUrl = dataUrl;
       // We don't have the explicit marker number here, so we derive it from the progress
-      currentPhotoMarkerNumber = state.activePlayerRecord.detectedMarkers ? state.activePlayerRecord.detectedMarkers.length : 1;
+      currentPhotoMarkerNumber = Math.max(1, state.activePlayerRecord.detectedMarkers ? state.activePlayerRecord.detectedMarkers.length : 1);
 
       $('#ar-photo-preview').src = dataUrl;
       $('#ar-photo-title').textContent = "Selfie Captured!";
@@ -1996,7 +2008,9 @@ const btnConsentAgree = document.getElementById('btn-consent-agree');
 if (btnConsentAgree) {
   btnConsentAgree.addEventListener('click', () => {
     if (window.pendingJoinStart) {
-      window.pendingJoinStart();
+      const start = window.pendingJoinStart;
+      window.pendingJoinStart = null;
+      start();
     }
   });
 }
@@ -2018,22 +2032,24 @@ if (btnExportTelemetry) {
       return;
     }
 
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Event,Participant,Age,MarkersFound,StartTime,EndTime,TotalTimeSec,HintsUsed,ConsentStatus\n";
+    let csvContent = "Event,Participant,Age,MarkersFound,StartTime,EndTime,TotalTimeSec,HintsUsed,ConsentStatus\n";
 
     state.events.forEach(ev => {
       if (ev.players) {
         ev.players.forEach(p => {
           const count = p.detectedMarkers ? p.detectedMarkers.length : 0;
-          const timeSec = p.endTime ? Math.floor((p.endTime - p.startTime) / 1000) : "Incomplete";
-          csvContent += `"${ev.name}","${p.name}",${p.age || 'N/A'},${count},"${new Date(p.startTime).toISOString()}",${p.endTime ? `"${new Date(p.endTime).toISOString()}"` : "N/A"},${timeSec},${p.hintsUsed || 0},"Consented"\n`;
+          const timeSec = (p.endTime && p.startTime) ? Math.floor((p.endTime - p.startTime) / 1000) : "Incomplete";
+          const startIso = p.startTime ? new Date(p.startTime).toISOString() : 'N/A';
+          const endIso = p.endTime ? new Date(p.endTime).toISOString() : 'N/A';
+          const row = [ev.name, p.name, p.age || 'N/A', count, startIso, endIso, timeSec, p.hintsUsed || 0, 'Consented'];
+          csvContent += row.map(csvField).join(',') + "\n";
         });
       }
     });
 
-    const encodedUri = encodeURI(csvContent);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", URL.createObjectURL(blob));
     link.setAttribute("download", `arthunt_telemetry_export_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
