@@ -10,7 +10,12 @@ import { startAR, stopAR, pauseAR, resumeAR, captureARImage } from './js/ar-engi
 import * as THREE from 'three';
 import { saveEventToDB, getEventsFromDB, deleteEventFromDB, updateEventInDB, saveFeedbackToDB, getFeedbackFromDB, uploadBase64Image } from './js/db.js';
 import { initLandingAnimation, stopLandingAnimation } from './js/landing.js';
+import { parseDeepLinkEventId, buildEventShareLink, resolveBackAction } from './js/navigation.js';
 // Removed static GEMINI_API_KEY import for global deployment security
+
+// Deep link: a shareable ?event=<id> (or #/join/<id>) that drops a hunter
+// straight into a specific quest, skipping the portal + browse steps.
+const deepLinkEventId = parseDeepLinkEventId(window.location.search, window.location.hash);
 
 // ─── Initialization ──────────────────────────────────────────
 setupCropperEvents();
@@ -221,6 +226,12 @@ btnStartExp.addEventListener('click', () => {
     loadingOverlay.style.display = 'none';
   }, 800);
 
+  // If arrived via a shareable quest link, go straight into the hunt.
+  if (deepLinkEventId) {
+    enterHuntFromDeepLink(deepLinkEventId);
+    return;
+  }
+
   // Trigger zoom in transition
   landingRoot.classList.remove('zoomed-out');
   initLandingAnimation();
@@ -247,6 +258,7 @@ function setRootColors(theme) {
 function transitionFromLanding(role) {
   stopLandingAnimation();
   $('#landing-root').classList.add('hidden');
+  armBackTrap();
 
   setTimeout(() => {
     $('#setup-screen').style.display = 'block';
@@ -263,6 +275,36 @@ function transitionFromLanding(role) {
   }, 600);
 }
 
+// Deep-link entry: skip the portal and drop the hunter into a specific quest.
+async function enterHuntFromDeepLink(eventId) {
+  stopLandingAnimation();
+  $('#landing-root').classList.add('hidden');
+  setRootColors('hunter');
+  $('#setup-screen').style.display = 'block';
+  void $('#setup-screen').offsetWidth;
+  $('#setup-screen').style.opacity = '1';
+  armBackTrap();
+
+  state.isAdmin = false;
+  isPlayerMode = true;
+
+  try {
+    state.events = await getEventsFromDB();
+  } catch (err) {
+    console.error('Deep-link event load failed:', err);
+  }
+
+  const idx = (state.events || []).findIndex(e => String(e.id) === String(eventId));
+  renderPlayerDashboard();
+  showPanel(sections.playerDashboard);
+
+  if (idx === -1) {
+    alert('That quest link is no longer active. Browse the available quests instead.');
+    return;
+  }
+  window.joinEvent(idx);
+}
+
 $('#btn-enter-creator').addEventListener('click', () => {
   primeAudio();
   transitionFromLanding('creator');
@@ -272,10 +314,7 @@ $('#btn-enter-hunter').addEventListener('click', () => {
   transitionFromLanding('hunter');
 });
 
-$('#btn-back-to-portal').addEventListener('click', () => {
-  // Use reload to ensure all state is cleared and we return to the very beginning
-  window.location.reload();
-});
+$('#btn-back-to-portal').addEventListener('click', resetToPortal);
 
 // ─── Landing Modals ────────────────────────────────────────────────
 const modal = $('#info-modal');
@@ -335,6 +374,187 @@ $('#nav-contact').addEventListener('click', (e) => {
 
 // Hide the old welcome 3D animation from the setup screen since we have a real landing page now
 $('#welcome-3d-container').style.display = 'none';
+
+// ─── Soft navigation: return to portal without a full page reload ────
+// Replaces window.location.reload() so we don't re-run system init,
+// re-fetch config, or restart the landing animation from scratch.
+function resetToPortal() {
+  // Tear down any live AR session / timers / overlays
+  try { stopAR(); } catch (_) { /* not running */ }
+  if (questTimerInterval) { clearInterval(questTimerInterval); questTimerInterval = null; }
+  [
+    'consent-overlay', 'identity-overlay', 'quest-complete-overlay', 'times-up-overlay',
+    'power-save-overlay', 'ar-photo-confirm-overlay', 'quest-finished-status'
+  ].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  const infoModal = document.getElementById('info-modal');
+  if (infoModal) infoModal.classList.add('hidden');
+
+  // Resolve any pending gates so their promises don't dangle
+  if (identityResolver) { identityResolver(null); identityResolver = null; }
+  if (consentResolver) { consentResolver(false); consentResolver = null; }
+
+  // Reset transient session state (mirrors what a reload used to clear)
+  state.isAdmin = false;
+  isPlayerMode = false;
+  state.player = null;
+  state.activePlayerRecord = null;
+  state.activeEventId = null;
+  state.markers = [];
+  state.eventName = '';
+
+  // Reset login UI
+  $('#btn-admin-toggle').classList.remove('active');
+  $('#btn-player-toggle').classList.remove('active');
+  $('#login-form').style.display = 'none';
+  $('#player-login-form').style.display = 'none';
+  const loginErr = $('#login-error'); if (loginErr) loginErr.style.display = 'none';
+  const playerErr = $('#player-error'); if (playerErr) playerErr.style.display = 'none';
+  const adminPass = $('#admin-pass'); if (adminPass) adminPass.value = '';
+
+  // Reset colours and clear any deep-link from the address bar
+  setRootColors('default');
+  window.applyTheme('standard');
+  if (window.location.search || window.location.hash) {
+    history.replaceState(null, '', window.location.pathname);
+  }
+
+  // Swap screens back to the portal
+  sections.ar.style.display = 'none';
+  $('#setup-screen').style.display = 'none';
+  $('#setup-screen').style.opacity = '0';
+  showPanel(sections.welcome);
+  const landing = $('#landing-root');
+  landing.classList.remove('hidden');
+  landing.classList.remove('zoomed-out');
+  initLandingAnimation();
+  navTrapArmed = false;
+}
+
+// ─── Hunter identity gate (collected on join) ────────────────────────
+let identityResolver = null;
+function requireIdentity() {
+  return new Promise((resolve) => {
+    identityResolver = resolve;
+    $('#identity-name').value = (state.player && state.player.name) || '';
+    $('#identity-age').value = (state.player && state.player.age) || '';
+    $('#identity-error').style.display = 'none';
+    $('#identity-overlay').style.display = 'flex';
+    setTimeout(() => $('#identity-name').focus(), 50);
+  });
+}
+$('#btn-identity-start').addEventListener('click', () => {
+  const name = $('#identity-name').value.trim();
+  const age = $('#identity-age').value.trim();
+  if (!name || !age) {
+    $('#identity-error').style.display = 'block';
+    return;
+  }
+  $('#identity-overlay').style.display = 'none';
+  if (identityResolver) { const r = identityResolver; identityResolver = null; r({ name, age }); }
+});
+$('#btn-identity-cancel').addEventListener('click', () => {
+  $('#identity-overlay').style.display = 'none';
+  if (identityResolver) { const r = identityResolver; identityResolver = null; r(null); }
+});
+
+// ─── Informed-consent gate (must resolve before any DB write) ────────
+let consentResolver = null;
+function requireConsent() {
+  return new Promise((resolve) => {
+    consentResolver = resolve;
+    $('#consent-overlay').style.display = 'flex';
+  });
+}
+
+// ─── Browser Back-button support ─────────────────────────────────────
+// The app has no router, so Back would otherwise exit the whole site.
+// We arm a history "trap" when the user leaves the portal, then map each
+// Back press to the equivalent in-app back/cancel action.
+let navTrapArmed = false;
+function armBackTrap() {
+  if (!navTrapArmed) {
+    history.pushState({ arthunt: true }, '');
+    navTrapArmed = true;
+  }
+}
+function getOpenOverlayId() {
+  const overlays = [
+    'identity-overlay', 'consent-overlay', 'ar-photo-confirm-overlay',
+    'times-up-overlay', 'quest-complete-overlay', 'power-save-overlay'
+  ];
+  for (const id of overlays) {
+    const el = document.getElementById(id);
+    if (el && getComputedStyle(el).display !== 'none') return id;
+  }
+  const infoModal = document.getElementById('info-modal');
+  if (infoModal && !infoModal.classList.contains('hidden')) return 'info-modal';
+  return null;
+}
+function closeOverlay(id) {
+  const el = document.getElementById(id);
+  switch (id) {
+    case 'identity-overlay':
+      if (el) el.style.display = 'none';
+      if (identityResolver) { const r = identityResolver; identityResolver = null; r(null); }
+      break;
+    case 'consent-overlay':
+      if (el) el.style.display = 'none';
+      if (consentResolver) { const r = consentResolver; consentResolver = null; r(false); }
+      break;
+    case 'power-save-overlay':
+      $('#btn-resume-camera').click();
+      break;
+    case 'times-up-overlay':
+      $('#btn-times-up-exit').click();
+      break;
+    case 'quest-complete-overlay':
+      if (el) el.style.display = 'none';
+      break;
+    case 'info-modal':
+      if (el) el.classList.add('hidden');
+      break;
+    case 'ar-photo-confirm-overlay':
+      $('#btn-photo-cancel').click();
+      break;
+    default:
+      if (el) el.style.display = 'none';
+  }
+}
+function handleBack() {
+  const arVisible = getComputedStyle(sections.ar).display !== 'none';
+  const activePanel = document.querySelector('.step-panel.active');
+  const landingVisible = !$('#landing-root').classList.contains('hidden')
+    && $('#setup-screen').style.display === 'none';
+
+  const action = resolveBackAction({
+    openOverlayId: getOpenOverlayId(),
+    arVisible,
+    activePanelId: activePanel ? activePanel.id : null,
+    atPortal: landingVisible
+  });
+
+  try {
+    switch (action.type) {
+      case 'close-overlay': closeOverlay(action.id); return true;
+      case 'stop-ar':       $('#btn-stop-ar').click(); return true;
+      case 'click': {
+        const btn = document.getElementById(action.id);
+        if (btn) btn.click();
+        return true;
+      }
+      case 'reset-portal':  resetToPortal(); return true;
+      case 'exit':          return false;
+      default:              return false;
+    }
+  } catch (err) {
+    console.error('Back navigation error:', err);
+    return false;
+  }
+}
+window.addEventListener('popstate', () => {
+  const stayedInApp = handleBack();
+  if (stayedInApp) armBackTrap(); // re-arm so Back keeps stepping back
+});
 
 // ─── Login Toggles ─────────────────────────────────────────────
 let isPlayerMode = false;
@@ -398,31 +618,22 @@ $('#btn-create-event').addEventListener('click', () => {
   showPanel(sections.adminCount);
 });
 
-$('#btn-admin-logout').addEventListener('click', () => {
-  // Full reload to return to the landing portal and clear all session states
-  window.location.reload();
-});
+$('#btn-admin-logout').addEventListener('click', resetToPortal);
 
 $('#btn-player-login').addEventListener('click', async () => {
-  const name = $('#player-name').value.trim();
-  const age = $('#player-age').value.trim();
-
-  if (!name || !age) {
-    $('#player-error').textContent = 'Please enter Name and Age.';
-    $('#player-error').style.display = 'block';
-    return;
-  }
-
-  $('#btn-player-login').innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;border-top-color:#fff;margin:0 auto;"></div>';
+  // Identity is now collected on join, so browsing quests needs no form.
+  const btn = $('#btn-player-login');
+  const originalLabel = btn.innerHTML;
+  btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;border-top-color:#fff;margin:0 auto;"></div>';
   try {
     state.events = await getEventsFromDB();
   } catch (err) {
-    console.error('Player login failed:', err);
+    console.error('Loading quests failed:', err);
     $('#player-error').textContent = `Could not connect: ${err.message}`;
     $('#player-error').style.display = 'block';
     return;
   } finally {
-    $('#btn-player-login').innerHTML = 'Login';
+    btn.innerHTML = originalLabel;
   }
 
   if (!state.events || state.events.length === 0) {
@@ -432,14 +643,11 @@ $('#btn-player-login').addEventListener('click', async () => {
   }
 
   $('#player-error').style.display = 'none';
-  state.player = { name, age };
   renderPlayerDashboard();
   showPanel(sections.playerDashboard);
 });
 
-$('#btn-player-back').addEventListener('click', () => {
-  window.location.reload();
-});
+$('#btn-player-back').addEventListener('click', resetToPortal);
 
 // ─── Dashboards ──────────────────────────────────────────────
 let analyticsChartInstance = null;
@@ -547,6 +755,10 @@ async function renderAdminDashboard() {
             ${isActive ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.openLiveMonitor(${index})" style="border: 1px solid var(--accent-emerald); color: var(--accent-emerald); display: flex; align-items: center; gap: 6px; padding: 6px 10px;" title="Live Event Monitor">
                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"/><rect x="3" y="6" width="12" height="12" rx="2" ry="2"/></svg>
                <span class="action-text">Monitor</span>
+            </button>` : ''}
+            ${isActive ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.copyEventLink(${index})" style="border: 1px solid var(--accent-violet); color: var(--accent-violet); display: flex; align-items: center; gap: 6px; padding: 6px 10px;" title="Copy shareable hunter link">
+               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+               <span class="action-text">Share</span>
             </button>` : ''}
             <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.exportEventCSV(${index})" style="border: 1px solid var(--accent-cyan); color: var(--accent-cyan); display: flex; align-items: center; gap: 6px; padding: 6px 10px;" title="Export Results to CSV">
                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -713,6 +925,23 @@ document.querySelectorAll('.sub-tab-btn').forEach(btn => {
   });
 });
 
+// Copy a shareable hunter deep link for an event to the clipboard.
+window.copyEventLink = async (index) => {
+  const ev = state.events[index];
+  if (!ev || !ev.id) {
+    alert('This event has no shareable link yet. Save it to the cloud first.');
+    return;
+  }
+  const link = buildEventShareLink(window.location.origin, window.location.pathname, ev.id);
+  try {
+    await navigator.clipboard.writeText(link);
+    alert(`Hunter link copied to clipboard:\n\n${link}`);
+  } catch (err) {
+    // Clipboard API blocked (e.g. insecure context) — show the link to copy manually.
+    prompt('Copy this hunter link:', link);
+  }
+};
+
 // Quote CSV fields so commas/quotes in user-entered names don't break columns
 function csvField(value) {
   const str = String(value ?? '');
@@ -829,7 +1058,9 @@ window.deleteEvent = async (index) => {
 function renderPlayerDashboard() {
   const list = $('#player-event-list');
   list.innerHTML = '';
-  $('#player-greeting').textContent = `Welcome, ${state.player.name}!`;
+  $('#player-greeting').textContent = (state.player && state.player.name)
+    ? `Welcome, ${state.player.name}!`
+    : 'Choose your quest';
 
   // Only show Active events to hunters
   const activeEvents = state.events.filter(ev => ev.status !== 'inactive');
@@ -859,6 +1090,19 @@ window.joinEvent = async (index) => {
   const ev = state.events[index];
   if (!ev) return;
   if (!Array.isArray(ev.players)) ev.players = [];
+
+  // 1. Collect hunter identity on join (not up front).
+  if (!state.player || !state.player.name) {
+    const identity = await requireIdentity();
+    if (!identity) return; // cancelled → stay on the browse list
+    state.player = identity;
+  }
+
+  // 2. Gate on informed consent BEFORE writing anything to the DB.
+  if (state.settings && state.settings.mandatoryConsent !== false) {
+    const consented = await requireConsent();
+    if (!consented) return; // declined → stay on the browse list, no write
+  }
 
   // Find or create player record
   let playerRecord = ev.players.find(p => p.name === state.player.name);
@@ -913,28 +1157,12 @@ window.joinEvent = async (index) => {
     avatarImg.src = `assets/avatar-${playerRecord.avatarId}.svg`;
   }
 
-  // --- MANDATORY E-CONSENT FLAG CHECK ---
-  if (state.settings && state.settings.mandatoryConsent !== false) {
-    $('#consent-overlay').style.display = 'flex';
-    
-    // Save pending start references
-    window.pendingJoinStart = () => {
-      $('#consent-overlay').style.display = 'none';
-      // Initialize and show Hunter Leaderboard
-      window.renderHunterLeaderboard();
-      window.updateHUDClue();
-      window.startQuestTimer();
-      window.applyTheme(ev.theme);
-      startAR();
-    };
-  } else {
-    // Initialize and show Hunter Leaderboard
-    window.renderHunterLeaderboard();
-    window.updateHUDClue();
-    window.startQuestTimer();
-    window.applyTheme(ev.theme);
-    startAR();
-  }
+  // 3. Identity + consent already resolved — launch the hunt.
+  window.renderHunterLeaderboard();
+  window.updateHUDClue();
+  window.startQuestTimer();
+  window.applyTheme(ev.theme);
+  startAR();
 };
 
 window.updateHUDClue = () => {
@@ -1832,7 +2060,7 @@ $('#btn-submit-feedback').addEventListener('click', async () => {
 
   // Return to portal after feedback
   alert("Thank you for participating in our research! Your feedback has been saved to our database.");
-  window.location.reload();
+  resetToPortal();
 });
 
 // Quest Completion Overlay Handlers
@@ -2003,15 +2231,12 @@ if (btnSaveSettings) {
   });
 }
 
-// Consent Overlay Button Event Handlers
+// Consent Overlay Button Event Handlers — resolve the requireConsent() gate.
 const btnConsentAgree = document.getElementById('btn-consent-agree');
 if (btnConsentAgree) {
   btnConsentAgree.addEventListener('click', () => {
-    if (window.pendingJoinStart) {
-      const start = window.pendingJoinStart;
-      window.pendingJoinStart = null;
-      start();
-    }
+    $('#consent-overlay').style.display = 'none';
+    if (consentResolver) { const r = consentResolver; consentResolver = null; r(true); }
   });
 }
 
@@ -2019,7 +2244,7 @@ const btnConsentDecline = document.getElementById('btn-consent-decline');
 if (btnConsentDecline) {
   btnConsentDecline.addEventListener('click', () => {
     $('#consent-overlay').style.display = 'none';
-    alert("Consent declined. You cannot join this research hunt study without consenting.");
+    if (consentResolver) { const r = consentResolver; consentResolver = null; r(false); }
   });
 }
 
