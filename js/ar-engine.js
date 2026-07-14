@@ -9,6 +9,9 @@ import { state } from './state.js';
 import { $, sections } from './utils.js';
 import { loadModel, createTextCard } from './loaders.js';
 import { launchConfetti } from './confetti.js';
+import { toast } from './toast.js';
+
+let lastWrongToastAt = 0;
 import { startSensing, stopSensing } from './sensing.js';
 
 export async function startAR() {
@@ -77,8 +80,8 @@ export async function startAR() {
     if (!state.isAdmin && state.activePlayerRecord) startSensing();
   } catch (err) {
     console.error("AR Start Error:", err);
-    alert(`Compiling failed: ${err.message || 'Unknown error'}`); 
-    $('#compile-overlay').style.display = 'none'; 
+    toast(`Could not start AR: ${err.message || 'Unknown error'}`, { type: 'error', duration: 6000 });
+    $('#compile-overlay').style.display = 'none';
   }
 }
 
@@ -178,6 +181,20 @@ async function initARSession() {
                 label.style.color = '';
               }
             }, 3000);
+          }
+
+          // Wayfinding: pull the hunter's eyes back to their current riddle
+          // instead of leaving them at a dead end.
+          const clueCard = $('#ar-clue-card');
+          if (clueCard) {
+            clueCard.classList.remove('pulse-attention');
+            void clueCard.offsetWidth; // restart the animation
+            clueCard.classList.add('pulse-attention');
+          }
+          // Debounced: tracking flicker re-fires onTargetFound rapidly.
+          if (Date.now() - lastWrongToastAt > 4000) {
+            lastWrongToastAt = Date.now();
+            toast('Not this one! Re-read your current clue — it leads to a different marker.', { type: 'warn' });
           }
           return; // STOP! Do not record this scan.
         }

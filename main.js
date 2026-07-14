@@ -12,6 +12,8 @@ import { saveEventToDB, getEventsFromDB, deleteEventFromDB, updateEventInDB, sav
 import { initLandingAnimation, stopLandingAnimation } from './js/landing.js';
 import { parseDeepLinkEventId, buildEventShareLink, resolveBackAction } from './js/navigation.js';
 import { ASSET_LIBRARY, LIBRARY_SCHEME, isLibraryUrl } from './js/asset-library.js';
+import { toast } from './js/toast.js';
+import qrcode from './js/vendor/qrcode.mjs';
 // Removed static GEMINI_API_KEY import for global deployment security
 
 // Deep link: a shareable ?event=<id> (or #/join/<id>) that drops a hunter
@@ -171,7 +173,7 @@ $('#btn-init-system').addEventListener('click', () => {
   const gemini = $('#cfg-gemini').value.trim();
 
   if (!url || !key) {
-    alert("Please provide at least the Supabase URL and Anon Key.");
+    toast("Please provide at least the Supabase URL and Anon Key.", { type: 'warn' });
     return;
   }
 
@@ -300,7 +302,7 @@ async function enterHuntFromDeepLink(eventId) {
   showPanel(sections.playerDashboard);
 
   if (idx === -1) {
-    alert('That quest link is no longer active. Browse the available quests instead.');
+    toast('That quest link is no longer active. Browse the available quests instead.', { type: 'error', duration: 6000 });
     return;
   }
   window.joinEvent(idx);
@@ -600,7 +602,7 @@ $('#btn-admin-login').addEventListener('click', async () => {
       showPanel(sections.adminDashboard);
     } catch (err) {
       console.error('Admin login failed:', err);
-      alert(`Could not load events: ${err.message}`);
+      toast(`Could not load events: ${err.message}`, { type: 'error', duration: 6000 });
     } finally {
       $('#btn-admin-login').innerHTML = 'Admin Login';
     }
@@ -764,6 +766,10 @@ async function renderAdminDashboard() {
             ${isActive ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.copyEventLink(${index})" style="border: 1px solid var(--accent-violet); color: var(--accent-violet); display: flex; align-items: center; gap: 6px; padding: 6px 10px;" title="Copy shareable hunter link">
                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                <span class="action-text">Share</span>
+            </button>` : ''}
+            ${isActive ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.printEventKit(${index})" style="border: 1px solid var(--text-secondary); color: var(--text-secondary); display: flex; align-items: center; gap: 6px; padding: 6px 10px;" title="Print marker sheets + join QR code">
+               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+               <span class="action-text">Print Kit</span>
             </button>` : ''}
             <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); window.exportEventCSV(${index})" style="border: 1px solid var(--accent-cyan); color: var(--accent-cyan); display: flex; align-items: center; gap: 6px; padding: 6px 10px;" title="Export Results to CSV">
                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -934,17 +940,74 @@ document.querySelectorAll('.sub-tab-btn').forEach(btn => {
 window.copyEventLink = async (index) => {
   const ev = state.events[index];
   if (!ev || !ev.id) {
-    alert('This event has no shareable link yet. Save it to the cloud first.');
+    toast('This event has no shareable link yet. Save it to the cloud first.', { type: 'warn' });
     return;
   }
   const link = buildEventShareLink(window.location.origin, window.location.pathname, ev.id);
   try {
     await navigator.clipboard.writeText(link);
-    alert(`Hunter link copied to clipboard:\n\n${link}`);
+    toast('Hunter link copied to clipboard.', { type: 'success' });
   } catch (err) {
     // Clipboard API blocked (e.g. insecure context) — show the link to copy manually.
     prompt('Copy this hunter link:', link);
   }
+};
+
+// Printable hunt kit: cover page with the join QR + one sheet per marker
+// (marker image, riddle, and a footer QR so latecomers can join anywhere).
+window.printEventKit = (index) => {
+  const ev = state.events[index];
+  if (!ev || !ev.id) {
+    toast('Save the event to the cloud first — the kit needs its join link.', { type: 'warn' });
+    return;
+  }
+  const link = buildEventShareLink(window.location.origin, window.location.pathname, ev.id);
+  const qr = qrcode(0, 'M');
+  qr.addData(link);
+  qr.make();
+  const qrSvg = qr.createSvgTag({ scalable: true, margin: 2 });
+  const total = ev.markers ? ev.markers.length : 0;
+
+  const markerSheets = (ev.markers || []).map((m, i) => `
+    <section class="sheet">
+      <div class="badge">Marker ${i + 1} of ${total}</div>
+      <img class="marker-img" src="${m.imageUrl}" alt="Marker ${i + 1}">
+      ${m.hint ? `<p class="hint">&ldquo;${escapeHtml(m.hint)}&rdquo;</p>` : ''}
+      <footer><div class="mini-qr">${qrSvg}</div><span>Scan to join &ldquo;${escapeHtml(ev.name)}&rdquo;</span></footer>
+    </section>`).join('');
+
+  const html = `<!DOCTYPE html><html><head><title>${escapeHtml(ev.name)} — Hunt Kit</title><style>
+    * { box-sizing: border-box; margin: 0; }
+    body { font-family: Inter, system-ui, sans-serif; color: #18181b; }
+    .sheet { page-break-after: always; min-height: 96vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 32px; text-align: center; }
+    h1 { font-size: 2rem; } .sub { color: #52525b; max-width: 480px; line-height: 1.5; }
+    .cover-qr svg { width: 320px; height: 320px; }
+    .linktext { font-size: 0.8rem; color: #52525b; word-break: break-all; max-width: 480px; }
+    .badge { font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #7c3aed; }
+    .marker-img { max-width: 82%; max-height: 58vh; object-fit: contain; border: 1px solid #d4d4d8; border-radius: 8px; }
+    .hint { font-style: italic; color: #3f3f46; max-width: 520px; line-height: 1.5; }
+    footer { display: flex; align-items: center; gap: 10px; color: #71717a; font-size: 0.8rem; margin-top: 8px; }
+    .mini-qr svg { width: 72px; height: 72px; }
+    .no-print { position: fixed; top: 16px; right: 16px; padding: 10px 18px; font-weight: 700; cursor: pointer; }
+    @media print { .no-print { display: none; } }
+  </style></head><body>
+    <button class="no-print" onclick="window.print()">Print</button>
+    <section class="sheet">
+      <h1>${escapeHtml(ev.name)}</h1>
+      <p class="sub">Scan the QR code with your phone camera to join the hunt — no app download needed. Then find and scan the ${total} hidden markers!</p>
+      <div class="cover-qr">${qrSvg}</div>
+      <p class="linktext">${escapeHtml(link)}</p>
+    </section>
+    ${markerSheets}
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) {
+    toast('Popup blocked — allow popups for this site to print the kit.', { type: 'error' });
+    return;
+  }
+  w.document.write(html);
+  w.document.close();
 };
 
 // Quote CSV fields so commas/quotes in user-entered names don't break columns
@@ -956,7 +1019,7 @@ function csvField(value) {
 window.exportEventCSV = (index) => {
   const ev = state.events[index];
   if (!ev.players || ev.players.length === 0) {
-    alert("No hunter data available to export.");
+    toast("No hunter data available to export.", { type: 'error', duration: 6000 });
     return;
   }
 
@@ -1802,7 +1865,7 @@ $('#btn-open-camera').addEventListener('click', async () => {
     $('#marker-preview-img').style.display = 'none';
     $('#camera-capture-area').style.display = 'block';
     $('#marker-input-container').classList.add('active');
-  } catch (e) { alert('Camera access denied'); }
+  } catch (e) { toast('Camera access was denied. Enable camera permission for this site in your browser settings, then try again.', { type: 'error', duration: 7000 }); }
 });
 
 $('#btn-capture').addEventListener('click', () => {
@@ -1898,13 +1961,13 @@ async function generateAIHint() {
   const marker = state.markers[state.currentMarkerIndex];
 
   if (!marker || !marker.dataUrl) {
-    alert("Please upload or capture a marker image first!");
+    toast("Please upload or capture a marker image first!", { type: 'warn' });
     return;
   }
 
   const apiKey = state.config.GEMINI_API_KEY;
   if (!apiKey) {
-    alert("Gemini API Key missing! Please configure it in the system setup.");
+    toast("Gemini API Key missing! Please configure it in the system setup.", { type: 'warn' });
     return;
   }
 
@@ -1944,7 +2007,7 @@ async function generateAIHint() {
 
   } catch (error) {
     console.error("AI Generation Error:", error);
-    alert("Failed to generate riddle. Check console for details.");
+    toast("Failed to generate riddle. Check console for details.", { type: 'error', duration: 6000 });
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalText;
@@ -2109,7 +2172,7 @@ $('#btn-ar-save').addEventListener('click', async () => {
     // Save the event to DB (uploads files)
     const savedData = await saveEventToDB(state.eventName, state.markers, state.timeLimit, state.theme);
     if (savedData) {
-      alert(`Success! "${state.eventName}" has been saved to the cloud and is now live for hunters.`);
+      toast(`Success! "${state.eventName}" has been saved to the cloud and is now live for hunters.`, { type: 'success' });
       state.events.unshift({
         id: savedData.id,
         ...savedData.data
@@ -2120,11 +2183,11 @@ $('#btn-ar-save').addEventListener('click', async () => {
       renderAdminDashboard();
       showPanel(sections.adminDashboard);
     } else {
-      alert("Failed to save to database. Ensure RLS is disabled on the 'events' table.");
+      toast("Failed to save to database. Ensure RLS is disabled on the 'events' table.", { type: 'error', duration: 6000 });
     }
   } catch (err) {
     console.error(err);
-    alert("Upload failed! Please ensure your 'ar-assets' bucket has an RLS policy allowing INSERTs.");
+    toast("Upload failed! Please ensure your 'ar-assets' bucket has an RLS policy allowing INSERTs.", { type: 'error', duration: 6000 });
   }
 
   $('#btn-ar-save').textContent = 'Save Event';
@@ -2170,7 +2233,7 @@ $('#btn-submit-feedback').addEventListener('click', async () => {
   });
 
   if (!allFilled) {
-    alert("Please rate all categories to submit your research data!");
+    toast("Please rate all categories to submit your research data!", { type: 'warn' });
     return;
   }
 
@@ -2180,7 +2243,7 @@ $('#btn-submit-feedback').addEventListener('click', async () => {
   await saveFeedbackToDB(ratings);
 
   // Return to portal after feedback
-  alert("Thank you for participating in our research! Your feedback has been saved to our database.");
+  toast("Thank you for participating in our research! Your feedback has been saved to our database.", { type: 'success' });
   resetToPortal();
 });
 
@@ -2348,7 +2411,7 @@ if (btnSaveSettings) {
     // Persist Settings
     localStorage.setItem('arthunt_settings', JSON.stringify(state.settings));
 
-    alert("Configurations saved and persisted successfully!");
+    toast("Configurations saved and persisted successfully!", { type: 'success' });
   });
 }
 
@@ -2395,7 +2458,7 @@ if (btnExportTelemetry) {
     }
 
     if (!state.events || state.events.length === 0) {
-      alert("No research event data found to export.");
+      toast("No research event data found to export.", { type: 'error', duration: 6000 });
       return;
     }
 

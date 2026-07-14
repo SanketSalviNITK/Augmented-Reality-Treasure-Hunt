@@ -363,3 +363,52 @@
 .asset-tile.active .asset-name {
   color: #fff;
 }
+
+/* ─── Toast notifications ─────────────────────────────────── */
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4000;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+  max-width: min(480px, 92vw);
+}
+
+.toast {
+  pointer-events: auto;
+  cursor: pointer;
+  background: rgba(24, 24, 27, 0.95);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  border-left-width: 3px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.toast-in { opacity: 1; transform: translateY(0); }
+.toast-out { opacity: 0; transform: translateY(8px); }
+
+.toast-info    { border-left-color: var(--accent-cyan); }
+.toast-success { border-left-color: var(--accent-emerald); }
+.toast-warn    { border-left-color: #f59e0b; }
+.toast-error   { border-left-color: var(--accent-rose, #f43f5e); }
+
+/* ─── Wrong-clue wayfinding pulse on the clue card ────────── */
+@keyframes clue-attention {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+  50% { box-shadow: 0 0 0 10px rgba(244, 63, 94, 0.25); }
+}
+.pulse-attention { animation: clue-attention 0.9s ease-in-out 3; }
