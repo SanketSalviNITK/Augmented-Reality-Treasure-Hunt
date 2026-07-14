@@ -23,6 +23,7 @@ export const state = {
   compiledBlobUrl: null,
   compiledMindUrl: null, // URL of precompiled .mind data for the active event
   compiledBuffer: null, // raw compiled buffer from the last on-device compilation
+  floorPlan: null, // { dataUrl, file } venue floor plan for marker pinning (optional)
   mixers: [],
   activePlayerRecord: null,
   activeEventId: null,

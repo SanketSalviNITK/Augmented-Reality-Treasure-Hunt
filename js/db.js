@@ -79,9 +79,10 @@ export async function saveEventToDB(eventName, markers, timeLimit, theme) {
       color: m.color,
       text: m.text,
       hint: m.hint, // Sequential riddle text
-      imageUrl: imageUrl, 
+      imageUrl: imageUrl,
       modelUrl: modelPublicUrl,
-      modelFileName: modelFileName
+      modelFileName: modelFileName,
+      pos: m.pos || null // normalized floor-plan position (spatial research)
     });
   }
   
@@ -101,6 +102,15 @@ export async function saveEventToDB(eventName, markers, timeLimit, theme) {
     },
     players: []
   };
+
+  // Optional venue floor plan for the marker pins above.
+  if (state.floorPlan && state.floorPlan.file) {
+    try {
+      eventData.floorPlanUrl = await uploadFile(state.floorPlan.file, 'floorplans');
+    } catch (err) {
+      console.warn('Floor plan upload failed, positions kept without image:', err);
+    }
+  }
 
   // Reuse the buffer the creator already compiled during their AR test, so
   // hunters can download it instead of recompiling on-device.

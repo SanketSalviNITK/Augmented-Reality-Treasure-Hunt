@@ -768,6 +768,19 @@
         <h2>Review Setup</h2>
         <p class="step-desc">Check your markers and overlays before launching the AR session.</p>
         <div id="review-list"></div>
+
+        <!-- Optional research feature: pin marker positions on a floor plan / map -->
+        <div class="config-section" id="floorplan-section" style="margin-top: 8px;">
+          <label style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Marker Locations <span style="font-weight: 500; text-transform: none; letter-spacing: 0;">(optional — enables spatial research data)</span></label>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0 0 12px 0;">Upload a floor plan or map of your venue, then click on it to place each marker where it is in the real world.</p>
+          <input type="file" id="floorplan-input" accept="image/*" hidden />
+          <button id="btn-upload-floorplan" class="btn btn-ghost btn-sm" style="border: 1px solid var(--border-subtle);">Upload Floor Plan</button>
+          <div id="floorplan-wrap" style="display: none; position: relative; margin-top: 12px; border: 1px solid var(--border-subtle); border-radius: 10px; overflow: hidden; cursor: crosshair;">
+            <img id="floorplan-img" style="width: 100%; display: block;" alt="Venue floor plan" />
+          </div>
+          <p id="floorplan-status" style="font-size: 0.8rem; color: var(--accent-cyan); margin: 10px 0 0 0; display: none;"></p>
+        </div>
+
         <div class="btn-row">
           <button id="btn-back-review" class="btn btn-ghost">Edit</button>
           <button id="btn-test-ar" class="btn btn-launch">Test Launch</button>
@@ -1067,7 +1080,7 @@
         <p style="margin-bottom: 12px;">This study evaluates the effectiveness and spatial usability of the ARTHunt Web-based Augmented Reality (WebAR) framework for spatial learning and real-time visual telemetry.</p>
         
         <h4 style="margin-bottom: 8px; color: var(--accent-violet);">2. Data Collection (IRB Protocol)</h4>
-        <p style="margin-bottom: 12px;">During your participation, the application will collect: (a) Quest elapsed durations and completion timestamps, (b) Spatial tracking telemetry, (c) Exit survey ratings, and (d) Background webcam photos captured during marker scans ("Silent Dashcam") to analyze mixed-reality visual context.</p>
+        <p style="margin-bottom: 12px;">During your participation, the application will collect: (a) Quest elapsed durations and completion timestamps, (b) Spatial tracking telemetry, (c) Exit survey ratings, and (d) Background webcam photos captured during marker scans ("Silent Dashcam") to analyze mixed-reality visual context, and (e) Periodic network-quality, battery, and approximate-location samples during the hunt (location only if you have already granted your browser location permission).</p>
         
         <h4 style="margin-bottom: 8px; color: var(--accent-violet);">3. Confidentiality & Anonymization</h4>
         <p style="margin-bottom: 12px;">Your personal identifiers are fully protected. Under anonymization mode, no real names will be linked to database records. Telemetry logs will only be shared in an aggregated, anonymous format for academic publication.</p>

@@ -9,6 +9,7 @@ import { state } from './state.js';
 import { $, sections } from './utils.js';
 import { loadModel, createTextCard } from './loaders.js';
 import { launchConfetti } from './confetti.js';
+import { startSensing, stopSensing } from './sensing.js';
 
 export async function startAR() {
   console.log("Starting AR Session for event:", state.eventName);
@@ -73,7 +74,8 @@ export async function startAR() {
     }
     
     await initARSession();
-  } catch (err) { 
+    if (!state.isAdmin && state.activePlayerRecord) startSensing();
+  } catch (err) {
     console.error("AR Start Error:", err);
     alert(`Compiling failed: ${err.message || 'Unknown error'}`); 
     $('#compile-overlay').style.display = 'none'; 
@@ -310,6 +312,8 @@ export function captureARImage() {
 }
 
 export function stopAR() {
+  stopSensing();
+
   if (state.mindarThree) {
     state.mindarThree.stop();
     state.mindarThree = null;

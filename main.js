@@ -404,6 +404,7 @@ function resetToPortal() {
   state.eventName = '';
   state.compiledMindUrl = null;
   state.compiledBuffer = null;
+  state.floorPlan = null;
 
   // Reset login UI
   $('#btn-admin-toggle').classList.remove('active');
@@ -613,6 +614,7 @@ $('#btn-create-event').addEventListener('click', () => {
   state.markerCount = 1;
   state.timeLimit = 0;
   state.theme = 'standard';
+  state.floorPlan = null;
   $('#event-name').value = '';
   $('#marker-count').value = 1;
   $('#time-limit').value = 0;
@@ -1993,7 +1995,78 @@ function renderReview() {
     `;
     list.appendChild(item);
   });
+  renderFloorplanUI(); // restore plan + pins when re-entering review
 }
+
+// ─── Floor-Plan Marker Pinning (optional, for spatial research data) ──
+// Creator uploads a venue plan and clicks to place each marker; positions
+// are stored normalized (0–1) so they're resolution-independent.
+
+function renderFloorplanUI() {
+  const wrap = $('#floorplan-wrap');
+  const status = $('#floorplan-status');
+  if (!state.floorPlan) {
+    wrap.style.display = 'none';
+    status.style.display = 'none';
+    $('#btn-upload-floorplan').textContent = 'Upload Floor Plan';
+    return;
+  }
+  $('#floorplan-img').src = state.floorPlan.dataUrl;
+  wrap.style.display = 'block';
+  status.style.display = 'block';
+  $('#btn-upload-floorplan').textContent = 'Replace Floor Plan';
+  renderFloorplanPins();
+}
+
+function renderFloorplanPins() {
+  const wrap = $('#floorplan-wrap');
+  wrap.querySelectorAll('.floorplan-pin').forEach(p => p.remove());
+  state.markers.forEach((m, i) => {
+    if (!m.pos) return;
+    const pin = document.createElement('div');
+    pin.className = 'floorplan-pin';
+    pin.textContent = i + 1;
+    pin.style.cssText = `position:absolute; left:${m.pos.x * 100}%; top:${m.pos.y * 100}%; transform:translate(-50%,-50%); width:24px; height:24px; border-radius:50%; background:var(--accent-violet); color:#fff; font-size:0.7rem; font-weight:800; display:flex; align-items:center; justify-content:center; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.5); pointer-events:none;`;
+    wrap.appendChild(pin);
+  });
+  const unplaced = state.markers.findIndex(m => !m.pos);
+  $('#floorplan-status').textContent = unplaced === -1
+    ? `All ${state.markers.length} markers placed — click near a pin to adjust it.`
+    : `Click the plan to place Marker ${unplaced + 1} of ${state.markers.length}.`;
+}
+
+$('#btn-upload-floorplan').addEventListener('click', () => $('#floorplan-input').click());
+$('#floorplan-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    state.floorPlan = { dataUrl: ev.target.result, file };
+    state.markers.forEach(m => { m.pos = null; }); // new plan → old pins invalid
+    renderFloorplanUI();
+  };
+  reader.readAsDataURL(file);
+});
+
+$('#floorplan-wrap').addEventListener('click', (e) => {
+  if (!state.floorPlan || state.markers.length === 0) return;
+  const rect = $('#floorplan-wrap').getBoundingClientRect();
+  const x = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+  const y = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+
+  let target = state.markers.findIndex(m => !m.pos);
+  if (target === -1) {
+    // All placed: adjust whichever pin is closest to the click.
+    let best = 0, bestDist = Infinity;
+    state.markers.forEach((m, i) => {
+      const d = (m.pos.x - x) ** 2 + (m.pos.y - y) ** 2;
+      if (d < bestDist) { bestDist = d; best = i; }
+    });
+    target = best;
+  }
+  state.markers[target].pos = { x: +x.toFixed(4), y: +y.toFixed(4) };
+  renderFloorplanPins();
+});
 
 $('#btn-back-review').addEventListener('click', () => showPanel(sections.config));
 
