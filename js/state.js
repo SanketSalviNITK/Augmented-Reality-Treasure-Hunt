@@ -21,6 +21,8 @@ export const state = {
   mindarThree: null,
   cameraStream: null,
   compiledBlobUrl: null,
+  compiledMindUrl: null, // URL of precompiled .mind data for the active event
+  compiledBuffer: null, // raw compiled buffer from the last on-device compilation
   mixers: [],
   activePlayerRecord: null,
   activeEventId: null,

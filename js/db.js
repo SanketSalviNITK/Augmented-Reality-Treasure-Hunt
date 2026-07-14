@@ -90,9 +90,29 @@ export async function saveEventToDB(eventName, markers, timeLimit, theme) {
     markers: processedMarkers,
     timeLimit: timeLimit || 0,
     theme: theme || 'standard',
+    // Snapshot the creator's research settings into the event so they
+    // actually reach hunters' devices (state.settings is per-browser).
+    settings: {
+      silentDashcam: state.settings.silentDashcam,
+      mandatoryConsent: state.settings.mandatoryConsent,
+      anonymizeHunters: state.settings.anonymizeHunters,
+      randomizedPathing: state.settings.randomizedPathing,
+      telemetryFrequency: state.settings.telemetryFrequency
+    },
     players: []
   };
-  
+
+  // Reuse the buffer the creator already compiled during their AR test, so
+  // hunters can download it instead of recompiling on-device.
+  if (state.compiledBuffer) {
+    try {
+      const mindFile = new File([state.compiledBuffer], 'targets.mind', { type: 'application/octet-stream' });
+      eventData.compiledMindUrl = await uploadFile(mindFile, 'compiled');
+    } catch (err) {
+      console.warn('Precompiled marker upload failed, hunters will compile on-device:', err);
+    }
+  }
+
   const { data, error } = await supabaseClient
     .from('events')
     .insert([{ data: eventData }])
@@ -163,14 +183,45 @@ export async function getFeedbackFromDB() {
     .from('feedback')
     .select('*')
     .order('created_at', { ascending: false });
-    
+
   if (error) {
     console.error('Database feedback fetch error:', error);
     return [];
   }
-  
+
   return data.map(row => ({
     id: row.id,
     ...row.data
   }));
+}
+
+// Fire-and-forget: never throws, never blocks gameplay on a slow/failed
+// network round-trip. Callers should not await this.
+export function logTelemetry(eventId, participant, kind, marker = null, data = null) {
+  try {
+    ensureClient();
+    supabaseClient
+      .from('telemetry')
+      .insert([{ event_id: eventId, participant, kind, marker, data }])
+      .then(({ error }) => {
+        if (error) console.warn('Telemetry insert error:', error);
+      });
+  } catch (err) {
+    console.warn('Telemetry logging failed:', err);
+  }
+}
+
+export async function getTelemetryRows() {
+  ensureClient();
+  const { data, error } = await supabaseClient
+    .from('telemetry')
+    .select('*')
+    .order('ts', { ascending: true });
+
+  if (error) {
+    console.error('Telemetry fetch error:', error);
+    return [];
+  }
+
+  return data;
 }

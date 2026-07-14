@@ -8,7 +8,7 @@ import { initCrop, setupCropperEvents } from './js/cropper.js';
 import { startAR, stopAR, pauseAR, resumeAR, captureARImage } from './js/ar-engine.js';
 
 import * as THREE from 'three';
-import { saveEventToDB, getEventsFromDB, deleteEventFromDB, updateEventInDB, saveFeedbackToDB, getFeedbackFromDB, uploadBase64Image } from './js/db.js';
+import { saveEventToDB, getEventsFromDB, deleteEventFromDB, updateEventInDB, saveFeedbackToDB, getFeedbackFromDB, uploadBase64Image, logTelemetry, getTelemetryRows } from './js/db.js';
 import { initLandingAnimation, stopLandingAnimation } from './js/landing.js';
 import { parseDeepLinkEventId, buildEventShareLink, resolveBackAction } from './js/navigation.js';
 import { ASSET_LIBRARY, LIBRARY_SCHEME, isLibraryUrl } from './js/asset-library.js';
@@ -402,6 +402,8 @@ function resetToPortal() {
   state.activeEventId = null;
   state.markers = [];
   state.eventName = '';
+  state.compiledMindUrl = null;
+  state.compiledBuffer = null;
 
   // Reset login UI
   $('#btn-admin-toggle').classList.remove('active');
@@ -1092,6 +1094,11 @@ window.joinEvent = async (index) => {
   if (!ev) return;
   if (!Array.isArray(ev.players)) ev.players = [];
 
+  // Apply the event's own research settings (snapshotted at save time) so
+  // the creator's experimental conditions govern this hunt, not whatever
+  // defaults live in this hunter's browser. Session-only: not persisted.
+  if (ev.settings) state.settings = { ...state.settings, ...ev.settings };
+
   // 1. Collect hunter identity on join (not up front).
   if (!state.player || !state.player.name) {
     const identity = await requireIdentity();
@@ -1144,9 +1151,11 @@ window.joinEvent = async (index) => {
 
   state.activePlayerRecord = playerRecord;
   state.activeEventId = ev.id;
+  logTelemetry(state.activeEventId, playerRecord.name, 'join');
 
   state.eventName = ev.name;
   state.markers = ev.markers;
+  state.compiledMindUrl = ev.compiledMindUrl || null;
   state.timeLimit = ev.timeLimit || 0;
 
   // Update Hunter HUD Name & Avatar
@@ -1225,6 +1234,11 @@ $('#btn-use-hint').addEventListener('click', async () => {
   // Track penalty
   if (!state.activePlayerRecord.hintsUsed) state.activePlayerRecord.hintsUsed = 0;
   state.activePlayerRecord.hintsUsed += 1;
+
+  if (state.activeEventId && state.activePlayerRecord.name) {
+    const markerNumber = currentMarkerIndex + 1;
+    logTelemetry(state.activeEventId, state.activePlayerRecord.name, 'hint', markerNumber);
+  }
 
   if (ev) await updateEventInDB(ev.id, ev);
 });
@@ -1983,7 +1997,12 @@ function renderReview() {
 
 $('#btn-back-review').addEventListener('click', () => showPanel(sections.config));
 
-$('#btn-test-ar').addEventListener('click', startAR);
+$('#btn-test-ar').addEventListener('click', () => {
+  // Admin may have edited markers since the last test — force a fresh compile.
+  state.compiledMindUrl = null;
+  state.compiledBuffer = null;
+  startAR();
+});
 
 $('#btn-stop-ar').addEventListener('click', () => {
   stopAR();
@@ -2280,7 +2299,28 @@ if (btnConsentDecline) {
 // Export All Telemetry (CSV) Handler
 const btnExportTelemetry = document.getElementById('btn-export-telemetry');
 if (btnExportTelemetry) {
-  btnExportTelemetry.addEventListener('click', () => {
+  btnExportTelemetry.addEventListener('click', async () => {
+    const rows = await getTelemetryRows();
+
+    if (rows.length > 0) {
+      // Prefer the raw append-only telemetry table (clean per-event rows,
+      // no lost updates from the read-modify-write players JSONB blob).
+      let csvContent = "Event ID,Participant,Kind,Marker,Timestamp,Data\n";
+      rows.forEach(row => {
+        const csvRow = [row.event_id, row.participant, row.kind, row.marker, row.ts, JSON.stringify(row.data)];
+        csvContent += csvRow.map(csvField).join(',') + "\n";
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.setAttribute("href", URL.createObjectURL(blob));
+      link.setAttribute("download", `arthunt_telemetry_raw_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+
     if (!state.events || state.events.length === 0) {
       alert("No research event data found to export.");
       return;

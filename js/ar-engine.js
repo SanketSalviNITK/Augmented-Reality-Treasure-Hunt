@@ -21,34 +21,42 @@ export async function startAR() {
   state.mixers = [];
   
   try {
-    const compiler = new Compiler();
-    
-    // Load images dynamically from URLs for compilation
-    const imageElements = await Promise.all(state.markers.map((m, i) => {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous'; 
-        img.onload = () => {
-          console.log(`Marker image ${i+1} loaded successfully`);
-          resolve(img);
-        };
-        img.onerror = () => {
-          console.error(`Failed to load marker image ${i+1}:`, m.imageUrl || 'No URL');
-          reject(new Error(`Marker image ${i+1} failed to load`));
-        };
-        img.src = m.imageUrl || m.dataUrl;
-      });
-    }));
+    if (state.compiledMindUrl) {
+      // Creator already compiled this event's targets during their AR test —
+      // reuse that buffer instead of recompiling on every hunter's device.
+      state.compiledBlobUrl = state.compiledMindUrl;
+      console.log("Using precompiled marker data.");
+    } else {
+      const compiler = new Compiler();
 
-    console.log("Starting image target compilation...");
-    await compiler.compileImageTargets(imageElements, (p) => {
-      $('#compile-progress').style.width = `${p * 100}%`;
-    });
-    
-    const buffer = await compiler.exportData();
-    state.compiledBlobUrl = URL.createObjectURL(new Blob([buffer]));
-    console.log("Compilation complete. Compiled data ready.");
-    
+      // Load images dynamically from URLs for compilation
+      const imageElements = await Promise.all(state.markers.map((m, i) => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            console.log(`Marker image ${i+1} loaded successfully`);
+            resolve(img);
+          };
+          img.onerror = () => {
+            console.error(`Failed to load marker image ${i+1}:`, m.imageUrl || 'No URL');
+            reject(new Error(`Marker image ${i+1} failed to load`));
+          };
+          img.src = m.imageUrl || m.dataUrl;
+        });
+      }));
+
+      console.log("Starting image target compilation...");
+      await compiler.compileImageTargets(imageElements, (p) => {
+        $('#compile-progress').style.width = `${p * 100}%`;
+      });
+
+      const buffer = await compiler.exportData();
+      state.compiledBuffer = buffer;
+      state.compiledBlobUrl = URL.createObjectURL(new Blob([buffer]));
+      console.log("Compilation complete. Compiled data ready.");
+    }
+
     $('#compile-overlay').style.display = 'none';
     sections.setup.style.display = 'none';
     sections.ar.style.display = 'block';
@@ -138,7 +146,13 @@ async function initARSession() {
           }
 
           console.warn(`Wrong marker sequence! Expected index ${expectedMarkerIndex}, scanned ${i}`);
-          
+
+          if (state.activeEventId && state.activePlayerRecord.name) {
+            import('./db.js').then(({ logTelemetry }) => {
+              logTelemetry(state.activeEventId, state.activePlayerRecord.name, 'wrong_scan', markerNumber);
+            }).catch(err => console.error("Telemetry import failed", err));
+          }
+
           // Play Wrong Clue Sound
           if (state.audioEnabled) {
             const sfxWrong = document.getElementById('sfx-wrong');
@@ -172,7 +186,13 @@ async function initARSession() {
 
         if (!state.activePlayerRecord.detectedMarkers.includes(markerNumber)) {
           state.activePlayerRecord.detectedMarkers.push(markerNumber);
-          
+
+          if (state.activeEventId && state.activePlayerRecord.name) {
+            import('./db.js').then(({ logTelemetry }) => {
+              logTelemetry(state.activeEventId, state.activePlayerRecord.name, 'scan', markerNumber);
+            }).catch(err => console.error("Telemetry import failed", err));
+          }
+
           // Update HUD Counter
           const currentCount = state.activePlayerRecord.detectedMarkers.length;
           if ($('#detected-count')) $('#detected-count').textContent = currentCount;
@@ -217,7 +237,13 @@ async function initARSession() {
           // Check for Quest Completion
           if (currentCount === state.markers.length) {
             console.log("QUEST COMPLETE! Triggering celebration...");
-            
+
+            if (state.activeEventId && state.activePlayerRecord.name) {
+              import('./db.js').then(({ logTelemetry }) => {
+                logTelemetry(state.activeEventId, state.activePlayerRecord.name, 'complete');
+              }).catch(err => console.error("Telemetry import failed", err));
+            }
+
             // Play Victory Sound
             if (state.audioEnabled) {
               const victorySfx = document.getElementById('sfx-victory');
