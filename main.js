@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { saveEventToDB, getEventsFromDB, deleteEventFromDB, updateEventInDB, saveFeedbackToDB, getFeedbackFromDB, uploadBase64Image } from './js/db.js';
 import { initLandingAnimation, stopLandingAnimation } from './js/landing.js';
 import { parseDeepLinkEventId, buildEventShareLink, resolveBackAction } from './js/navigation.js';
+import { ASSET_LIBRARY, LIBRARY_SCHEME, isLibraryUrl } from './js/asset-library.js';
 // Removed static GEMINI_API_KEY import for global deployment security
 
 // Deep link: a shareable ?event=<id> (or #/join/<id>) that drops a hunter
@@ -1735,8 +1736,11 @@ function updateMarkerStep() {
   $$('.toggle-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.type === m.type));
   $('#config-model-area').style.display = m.type === 'model' ? 'block' : 'none';
   $('#config-text-area').style.display = m.type === 'text' ? 'block' : 'none';
+  const hasModel = !!(m.modelFile || isLibraryUrl(m.modelUrl));
   $('#model-status').textContent = m.modelFile ? m.modelFile.name : 'Drop 3D Model here';
-  $('#scale-control').style.display = m.modelFile ? 'block' : 'none';
+  $('#scale-control').style.display = hasModel ? 'block' : 'none';
+  $$('.asset-tile').forEach(tile =>
+    tile.classList.toggle('active', m.modelUrl === LIBRARY_SCHEME + tile.dataset.assetId));
   $('#model-scale').value = m.scale;
   $('#scale-value').textContent = m.scale.toFixed(2);
   $('#overlay-text').value = m.text || '';
@@ -1748,7 +1752,8 @@ function updateMarkerStep() {
 
 function checkMarkerComplete() {
   const m = state.markers[state.currentMarkerIndex];
-  const isComplete = !!m.image && (m.type === 'model' ? !!m.modelFile : !!m.text);
+  const hasModel = !!(m.modelFile || isLibraryUrl(m.modelUrl));
+  const isComplete = !!m.image && (m.type === 'model' ? hasModel : !!m.text);
   $('#btn-next-marker').disabled = !isComplete;
   $('#btn-next-marker').textContent = state.currentMarkerIndex === state.markerCount - 1 ? 'Review Setup' : 'Next Marker';
 }
@@ -1820,6 +1825,29 @@ $$('.toggle-btn').forEach(btn => btn.addEventListener('click', () => {
   updateMarkerStep();
 }));
 
+// ─── Built-in Asset Library ───────────────────────────────────
+(function renderAssetLibrary() {
+  const grid = $('#asset-library-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  ASSET_LIBRARY.forEach(asset => {
+    const tile = document.createElement('div');
+    tile.className = 'asset-tile';
+    tile.dataset.assetId = asset.id;
+    tile.title = asset.name;
+    tile.innerHTML = `<span class="asset-icon">${asset.icon}</span><span class="asset-name">${asset.name}</span>`;
+    tile.addEventListener('click', () => {
+      const m = state.markers[state.currentMarkerIndex];
+      if (!m) return;
+      m.modelFile = null; // library pick replaces any uploaded file
+      m.modelUrl = LIBRARY_SCHEME + asset.id;
+      m.modelFileName = `${asset.name} (built-in)`;
+      updateMarkerStep();
+    });
+    grid.appendChild(tile);
+  });
+})();
+
 $('#model-drop-zone').addEventListener('click', () => $('#model-file-input').click());
 $('#model-file-input').addEventListener('change', (e) => {
   const file = e.target.files[0];
@@ -1827,6 +1855,7 @@ $('#model-file-input').addEventListener('change', (e) => {
     const m = state.markers[state.currentMarkerIndex];
     m.modelFile = file;
     m.modelUrl = URL.createObjectURL(file);
+    m.modelFileName = file.name;
     updateMarkerStep();
   }
 });
@@ -1943,7 +1972,7 @@ function renderReview() {
       <img src="${m.dataUrl}" class="review-marker-thumb">
       <div class="review-info">
         <h4>Marker ${i + 1}</h4>
-        <p>${m.type === 'model' ? `Model: ${escapeHtml(m.modelFile ? m.modelFile.name : 'N/A')}` : `Msg: ${escapeHtml((m.text || '').substring(0, 20))}...`}</p>
+        <p>${m.type === 'model' ? `Model: ${escapeHtml(m.modelFileName || (m.modelFile ? m.modelFile.name : 'N/A'))}` : `Msg: ${escapeHtml((m.text || '').substring(0, 20))}...`}</p>
         <p style="font-size: 0.7rem; color: var(--accent-cyan); margin-top: 4px;">Hint: ${escapeHtml(m.hint || 'No hint provided')}</p>
       </div>
       <span class="review-type-badge">${m.type.toUpperCase()}</span>

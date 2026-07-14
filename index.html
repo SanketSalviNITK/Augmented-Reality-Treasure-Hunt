@@ -687,6 +687,15 @@
             </div>
 
             <div id="config-model-area">
+              <label style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Asset Library</label>
+              <div id="asset-library-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; margin-bottom: 14px;">
+                <!-- JS populated from js/asset-library.js -->
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; color: var(--text-muted); font-size: 0.75rem;">
+                <div style="flex:1; height:1px; background: var(--border-subtle);"></div>
+                or upload your own
+                <div style="flex:1; height:1px; background: var(--border-subtle);"></div>
+              </div>
               <div id="model-drop-zone">
                 <span id="model-status">Drop 3D Model here</span>
                 <input type="file" id="model-file-input" accept=".glb,.gltf,.fbx,.obj,.stl,.dae,.ply" hidden />

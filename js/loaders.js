@@ -10,33 +10,71 @@ import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
 import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
 import { roundRect } from './utils.js';
+import { isLibraryUrl, libraryIdFromUrl, getLibraryAsset } from './asset-library.js';
+
+// Scale the model and rest it centred on top of the marker plane.
+function finalizeModel(model, scale) {
+  model.scale.set(scale, scale, scale);
+  const box = new THREE.Box3().setFromObject(model);
+  const center = box.getCenter(new THREE.Vector3());
+  model.position.sub(center);
+  model.position.y += (box.max.y - box.min.y) * scale * 0.5;
+  return model;
+}
+
+// Gentle idle spin for library models. Duck-typed as a mixer so the
+// AR engine's existing `mixer.update(delta)` loop drives it unchanged.
+function makeSpinner(model) {
+  return { update: (delta) => { model.rotation.y += delta * 0.8; } };
+}
+
+async function loadLibraryModel(id, scale) {
+  const asset = getLibraryAsset(id);
+  if (!asset) throw new Error(`Unknown library asset: ${id}`);
+
+  if (asset.kind === 'procedural') {
+    const model = finalizeModel(asset.build(), scale);
+    return { model, mixer: makeSpinner(model) };
+  }
+
+  // File-based library entry (bundled with the app)
+  const data = await new Promise((res, rej) => new GLTFLoader().load(asset.url, res, undefined, rej));
+  const model = finalizeModel(data.scene || data, scale);
+  let mixer;
+  if (data.animations?.length) {
+    mixer = new THREE.AnimationMixer(model);
+    data.animations.forEach(c => mixer.clipAction(c).play());
+  } else {
+    mixer = makeSpinner(model);
+  }
+  return { model, mixer };
+}
 
 export async function loadModel(url, name, scale) {
+  if (isLibraryUrl(url)) {
+    return loadLibraryModel(libraryIdFromUrl(url), scale);
+  }
+
   const ext = name.toLowerCase().split('.').pop();
   const loader = getLoaderForExt(ext);
-  
+
   const data = await new Promise((res, rej) => loader.load(url, res, undefined, rej));
   let model, mixer;
-  
+
   if (ext === 'glb' || ext === 'gltf' || ext === 'fbx') {
     model = data.scene || data;
-    if (data.animations?.length) { 
-      mixer = new THREE.AnimationMixer(model); 
-      data.animations.forEach(c => mixer.clipAction(c).play()); 
+    if (data.animations?.length) {
+      mixer = new THREE.AnimationMixer(model);
+      data.animations.forEach(c => mixer.clipAction(c).play());
     }
   } else if (ext === 'stl' || ext === 'ply') {
-    model = new THREE.Group(); 
+    model = new THREE.Group();
     model.add(new THREE.Mesh(data, new THREE.MeshStandardMaterial({ color: 0xa78bfa })));
   } else {
     model = data.scene || data;
   }
-  
-  model.scale.set(scale, scale, scale);
-  const box = new THREE.Box3().setFromObject(model);
-  const center = box.getCenter(new THREE.Vector3());
-  model.position.sub(center); 
-  model.position.y += (box.max.y - box.min.y) * scale * 0.5;
-  
+
+  finalizeModel(model, scale);
   return { model, mixer };
 }
 

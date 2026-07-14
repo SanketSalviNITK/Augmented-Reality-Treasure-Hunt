@@ -320,3 +320,46 @@
 .likert-option input[type="radio"]:checked ~ .likert-label {
   color: var(--accent-violet);
 }
+
+/* ─── Built-in 3D Asset Library tiles ─────────────────────── */
+.asset-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px 8px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.asset-tile:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+.asset-tile.active {
+  border-color: var(--accent-violet);
+  background: rgba(167, 139, 250, 0.12);
+  box-shadow: 0 0 12px rgba(167, 139, 250, 0.25);
+}
+
+.asset-tile .asset-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.asset-tile .asset-name {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.asset-tile.active .asset-name {
+  color: #fff;
+}

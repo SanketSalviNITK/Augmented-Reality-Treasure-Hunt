@@ -63,7 +63,12 @@ export async function saveEventToDB(eventName, markers, timeLimit, theme) {
     
     let modelPublicUrl = null;
     let modelFileName = null;
-    if (m.type === 'model' && m.modelFile) {
+    if (m.type === 'model' && typeof m.modelUrl === 'string' && m.modelUrl.startsWith('library:')) {
+      // Built-in library asset: stored by reference, resolved locally on
+      // every device — nothing to upload.
+      modelPublicUrl = m.modelUrl;
+      modelFileName = m.modelFileName || m.modelUrl;
+    } else if (m.type === 'model' && m.modelFile) {
       modelPublicUrl = await uploadFile(m.modelFile, 'models');
       modelFileName = m.modelFile.name;
     }
