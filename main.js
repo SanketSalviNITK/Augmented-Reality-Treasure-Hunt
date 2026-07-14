@@ -20,6 +20,10 @@ import qrcode from './js/vendor/qrcode.mjs';
 // straight into a specific quest, skipping the portal + browse steps.
 const deepLinkEventId = parseDeepLinkEventId(window.location.search, window.location.hash);
 
+// Demo mode (?demo=1): run entirely on an in-browser localStorage backend —
+// no Supabase account needed. Great for local dummy tests and workshops.
+const isDemoMode = new URLSearchParams(window.location.search).has('demo');
+
 // ─── Initialization ──────────────────────────────────────────
 setupCropperEvents();
 // Removed automatic initLandingAnimation() - handled by loading logic below
@@ -85,6 +89,16 @@ const landingRoot = $('#landing-root');
 
 // Initial System Check
 async function initSystem() {
+  if (isDemoMode) {
+    const { installDemoBackend } = await import('./js/demo-backend.js');
+    installDemoBackend();
+    state.config.SUPABASE_URL = 'https://demo.local';
+    state.config.SUPABASE_ANON_KEY = 'demo';
+    console.log('🧪 DEMO MODE: all data stays in this browser (localStorage).');
+    finishLoading();
+    return;
+  }
+
   console.log("Checking system configuration...");
   
   // 1. Check for dynamic config in state
@@ -421,7 +435,8 @@ function resetToPortal() {
   setRootColors('default');
   window.applyTheme('standard');
   if (window.location.search || window.location.hash) {
-    history.replaceState(null, '', window.location.pathname);
+    // Keep ?demo=1 so a reload doesn't silently leave the local sandbox.
+    history.replaceState(null, '', window.location.pathname + (isDemoMode ? '?demo=1' : ''));
   }
 
   // Swap screens back to the portal
@@ -943,7 +958,8 @@ window.copyEventLink = async (index) => {
     toast('This event has no shareable link yet. Save it to the cloud first.', { type: 'warn' });
     return;
   }
-  const link = buildEventShareLink(window.location.origin, window.location.pathname, ev.id);
+  let link = buildEventShareLink(window.location.origin, window.location.pathname, ev.id);
+  if (isDemoMode) link += '&demo=1'; // keep hunters in the same local sandbox
   try {
     await navigator.clipboard.writeText(link);
     toast('Hunter link copied to clipboard.', { type: 'success' });
@@ -961,7 +977,8 @@ window.printEventKit = (index) => {
     toast('Save the event to the cloud first — the kit needs its join link.', { type: 'warn' });
     return;
   }
-  const link = buildEventShareLink(window.location.origin, window.location.pathname, ev.id);
+  let link = buildEventShareLink(window.location.origin, window.location.pathname, ev.id);
+  if (isDemoMode) link += '&demo=1';
   const qr = qrcode(0, 'M');
   qr.addData(link);
   qr.make();

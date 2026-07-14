@@ -54,6 +54,14 @@ cd Augmented-Reality-Treasure-Hunt
 npx serve -l 3000
 ```
 
+### Quick local dummy test — no backend needed
+Open **`http://localhost:3000/?demo=1`** and the app runs entirely on an
+in-browser localStorage backend: no Supabase account, no keys, no network.
+Create a hunt as a Creator, then join it as a Hunter in the same browser —
+the full flow works, including live AR with your webcam (print or display
+your marker images). A "DEMO MODE" badge reminds you that events, players,
+photos, and telemetry stay on this device; clear site data to reset.
+
 ### 3. Configuration
 **Security First:** Never commit your Supabase API keys to version control.
 1. Copy `config.js.example` to a new file named `config.js` in the root directory.
