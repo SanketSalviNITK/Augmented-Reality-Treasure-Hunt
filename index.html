@@ -622,6 +622,19 @@
           </select>
         </div>
 
+        <div class="config-section">
+          <h3>Access</h3>
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 10px;">Paid hunts show hunters an entry fee before they join. (Payment collection launches with creator accounts — until then this is informational.)</p>
+          <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+            <button class="toggle-btn active" id="btn-access-free" style="flex: 1;">Free</button>
+            <button class="toggle-btn" id="btn-access-paid" style="flex: 1;">Paid</button>
+          </div>
+          <div id="price-row" style="display: none; align-items: center; gap: 8px;">
+            <span style="color: var(--text-secondary); font-weight: 700;">₹</span>
+            <input type="number" id="event-price" class="form-input" placeholder="Entry fee per hunter" min="1" max="100000" step="1" style="flex: 1;" />
+          </div>
+        </div>
+
         <div class="btn-row" style="width: 100%; display: flex; gap: 12px; margin-top: 16px;">
           <button id="btn-cancel-event" class="btn btn-ghost" style="flex: 1;">Cancel</button>
           <button id="btn-confirm-count" class="btn btn-next" disabled style="flex: 1;">
@@ -1047,6 +1060,21 @@
               <img id="ar-hint-reveal-img" src="" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #f59e0b; margin-top: 4px;">
             </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Paid-Event Gate Overlay (scaffold: informational until payments launch) -->
+  <div id="paygate-overlay" style="display: none; position: fixed; inset: 0; background: rgba(10, 10, 15, 0.95); z-index: 3000; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(15px); padding: 24px; box-sizing: border-box;">
+    <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 32px; max-width: 380px; width: 100%; box-shadow: var(--shadow-card); text-align: center;">
+      <div style="font-size: 2rem; margin-bottom: 8px;">🎟️</div>
+      <h3 style="margin: 0 0 8px 0; font-size: 1.3rem; color: white;">Paid Hunt</h3>
+      <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 6px;">Entry fee for <strong id="paygate-event-name" style="color: white;"></strong>:</p>
+      <p id="paygate-price" style="font-size: 2rem; font-weight: 800; color: var(--accent-emerald); margin: 0 0 16px 0;"></p>
+      <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 20px;">Online payment is coming soon — for now, pay the organizer directly (at the venue or as instructed) and continue.</p>
+      <div style="display: flex; gap: 12px;">
+        <button id="btn-paygate-cancel" class="btn btn-ghost" style="flex: 1;">Cancel</button>
+        <button id="btn-paygate-continue" class="btn btn-primary" style="flex: 1;">I've Paid — Continue</button>
       </div>
     </div>
   </div>

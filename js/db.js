@@ -91,6 +91,13 @@ export async function saveEventToDB(eventName, markers, timeLimit, theme) {
     markers: processedMarkers,
     timeLimit: timeLimit || 0,
     theme: theme || 'standard',
+    // Access model (scaffold): shown to hunters at join; payment
+    // enforcement arrives with creator accounts + a processor.
+    pricing: {
+      paid: !!state.pricing.paid,
+      price: state.pricing.paid ? state.pricing.price : 0,
+      currency: 'INR'
+    },
     // Snapshot the creator's research settings into the event so they
     // actually reach hunters' devices (state.settings is per-browser).
     settings: {

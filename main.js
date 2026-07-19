@@ -400,8 +400,8 @@ function resetToPortal() {
   try { stopAR(); } catch (_) { /* not running */ }
   if (questTimerInterval) { clearInterval(questTimerInterval); questTimerInterval = null; }
   [
-    'consent-overlay', 'identity-overlay', 'quest-complete-overlay', 'times-up-overlay',
-    'power-save-overlay', 'ar-photo-confirm-overlay', 'quest-finished-status'
+    'consent-overlay', 'identity-overlay', 'paygate-overlay', 'quest-complete-overlay',
+    'times-up-overlay', 'power-save-overlay', 'ar-photo-confirm-overlay', 'quest-finished-status'
   ].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
   const infoModal = document.getElementById('info-modal');
   if (infoModal) infoModal.classList.add('hidden');
@@ -409,6 +409,7 @@ function resetToPortal() {
   // Resolve any pending gates so their promises don't dangle
   if (identityResolver) { identityResolver(null); identityResolver = null; }
   if (consentResolver) { consentResolver(false); consentResolver = null; }
+  if (paygateResolver) { paygateResolver(false); paygateResolver = null; }
 
   // Reset transient session state (mirrors what a reload used to clear)
   state.isAdmin = false;
@@ -478,6 +479,25 @@ $('#btn-identity-cancel').addEventListener('click', () => {
   if (identityResolver) { const r = identityResolver; identityResolver = null; r(null); }
 });
 
+// ─── Paid-event gate (scaffold: informational until payments launch) ─
+let paygateResolver = null;
+function requirePaygate(ev) {
+  return new Promise((resolve) => {
+    paygateResolver = resolve;
+    $('#paygate-event-name').textContent = ev.name;
+    $('#paygate-price').textContent = `₹${ev.pricing.price}`;
+    $('#paygate-overlay').style.display = 'flex';
+  });
+}
+$('#btn-paygate-continue').addEventListener('click', () => {
+  $('#paygate-overlay').style.display = 'none';
+  if (paygateResolver) { const r = paygateResolver; paygateResolver = null; r(true); }
+});
+$('#btn-paygate-cancel').addEventListener('click', () => {
+  $('#paygate-overlay').style.display = 'none';
+  if (paygateResolver) { const r = paygateResolver; paygateResolver = null; r(false); }
+});
+
 // ─── Informed-consent gate (must resolve before any DB write) ────────
 let consentResolver = null;
 function requireConsent() {
@@ -500,7 +520,7 @@ function armBackTrap() {
 }
 function getOpenOverlayId() {
   const overlays = [
-    'identity-overlay', 'consent-overlay', 'ar-photo-confirm-overlay',
+    'paygate-overlay', 'identity-overlay', 'consent-overlay', 'ar-photo-confirm-overlay',
     'times-up-overlay', 'quest-complete-overlay', 'power-save-overlay'
   ];
   for (const id of overlays) {
@@ -521,6 +541,10 @@ function closeOverlay(id) {
     case 'consent-overlay':
       if (el) el.style.display = 'none';
       if (consentResolver) { const r = consentResolver; consentResolver = null; r(false); }
+      break;
+    case 'paygate-overlay':
+      if (el) el.style.display = 'none';
+      if (paygateResolver) { const r = paygateResolver; paygateResolver = null; r(false); }
       break;
     case 'power-save-overlay':
       $('#btn-resume-camera').click();
@@ -632,6 +656,11 @@ $('#btn-create-event').addEventListener('click', () => {
   state.timeLimit = 0;
   state.theme = 'standard';
   state.floorPlan = null;
+  state.pricing = { paid: false, price: 0 };
+  $('#btn-access-free').classList.add('active');
+  $('#btn-access-paid').classList.remove('active');
+  $('#price-row').style.display = 'none';
+  $('#event-price').value = '';
   $('#event-name').value = '';
   $('#marker-count').value = 1;
   $('#time-limit').value = 0;
@@ -770,7 +799,7 @@ async function renderAdminDashboard() {
           <div>
             <h3 style="margin: 0; font-size: 1.1rem; color: white;">${escapeHtml(ev.name)}</h3>
             <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: var(--text-secondary);">
-              ${ev.markers ? ev.markers.length : 0} Markers • ${ev.players ? ev.players.length : 0} Participants • <span style="color: ${isActive ? 'var(--accent-emerald)' : '#f87171'};">${isActive ? 'ACTIVE' : 'INACTIVE'}</span>
+              ${ev.markers ? ev.markers.length : 0} Markers • ${ev.players ? ev.players.length : 0} Participants • ${(ev.pricing && ev.pricing.paid && ev.pricing.price > 0) ? `<span style="color: #f59e0b;">PAID ₹${ev.pricing.price}</span>` : '<span style="color: var(--text-muted);">FREE</span>'} • <span style="color: ${isActive ? 'var(--accent-emerald)' : '#f87171'};">${isActive ? 'ACTIVE' : 'INACTIVE'}</span>
             </p>
           </div>
           <div class="event-card-actions" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
@@ -1160,9 +1189,13 @@ function renderPlayerDashboard() {
     const originalIndex = state.events.findIndex(e => e.id === ev.id);
     const card = document.createElement('div');
     card.className = 'review-item';
+    const isPaid = ev.pricing && ev.pricing.paid && ev.pricing.price > 0;
+    const accessBadge = isPaid
+      ? `<span style="font-size: 0.65rem; background: rgba(245,158,11,0.15); color: #f59e0b; padding: 2px 8px; border-radius: 10px; font-weight: 800; border: 1px solid rgba(245,158,11,0.35);">PAID · ₹${ev.pricing.price}</span>`
+      : `<span style="font-size: 0.65rem; background: rgba(16,185,129,0.12); color: var(--accent-emerald); padding: 2px 8px; border-radius: 10px; font-weight: 800; border: 1px solid rgba(16,185,129,0.3);">FREE</span>`;
     card.innerHTML = `
       <div class="review-info">
-        <h4>${escapeHtml(ev.name)}</h4>
+        <h4 style="display: flex; align-items: center; gap: 8px;">${escapeHtml(ev.name)} ${accessBadge}</h4>
         <p>Treasure Hunt</p>
       </div>
       <button class="btn btn-launch btn-sm" onclick="window.joinEvent(${originalIndex})">Join</button>
@@ -1180,6 +1213,12 @@ window.joinEvent = async (index) => {
   // the creator's experimental conditions govern this hunt, not whatever
   // defaults live in this hunter's browser. Session-only: not persisted.
   if (ev.settings) state.settings = { ...state.settings, ...ev.settings };
+
+  // 0. Paid hunt? Show the entry fee before asking for anything else.
+  if (ev.pricing && ev.pricing.paid && ev.pricing.price > 0) {
+    const proceed = await requirePaygate(ev);
+    if (!proceed) return; // declined → stay on the browse list
+  }
 
   // 1. Collect hunter identity on join (not up front).
   if (!state.player || !state.player.name) {
@@ -1799,10 +1838,34 @@ $('#btn-count-minus').addEventListener('click', () => {
 
 $('#btn-confirm-count').addEventListener('click', startMarkerConfig);
 
+// ─── Event Access (Free / Paid scaffold) ─────────────────────
+$('#btn-access-free').addEventListener('click', () => {
+  state.pricing = { paid: false, price: 0 };
+  $('#btn-access-free').classList.add('active');
+  $('#btn-access-paid').classList.remove('active');
+  $('#price-row').style.display = 'none';
+});
+
+$('#btn-access-paid').addEventListener('click', () => {
+  state.pricing.paid = true;
+  $('#btn-access-paid').classList.add('active');
+  $('#btn-access-free').classList.remove('active');
+  $('#price-row').style.display = 'flex';
+  $('#event-price').focus();
+});
+
+$('#event-price').addEventListener('input', (e) => {
+  state.pricing.price = Math.max(0, parseInt(e.target.value) || 0);
+});
+
 // ─── Marker Setup ─────────────────────────────────────────────
 function startMarkerConfig() {
   state.timeLimit = parseInt($('#time-limit').value) || 0;
   state.theme = $('#event-theme').value || 'standard';
+  if (state.pricing.paid && state.pricing.price < 1) {
+    toast('Set an entry fee for the paid hunt (or switch it back to Free).', { type: 'warn' });
+    return;
+  }
   state.currentMarkerIndex = 0;
   state.markers = Array.from({ length: state.markerCount }, () => ({
     type: 'model', scale: 0.5, color: '#a78bfa'
@@ -1829,7 +1892,7 @@ function updateMarkerStep() {
     $('#marker-placeholder').style.display = 'flex';
   }
 
-  $$('.toggle-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.type === m.type));
+  $$('#step-marker-config .toggle-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.type === m.type));
   $('#config-model-area').style.display = m.type === 'model' ? 'block' : 'none';
   $('#config-text-area').style.display = m.type === 'text' ? 'block' : 'none';
   const hasModel = !!(m.modelFile || isLibraryUrl(m.modelUrl));
@@ -1916,7 +1979,7 @@ $('#btn-capture').addEventListener('click', () => {
   };
 });
 
-$$('.toggle-btn').forEach(btn => btn.addEventListener('click', () => {
+$$('#step-marker-config .toggle-btn').forEach(btn => btn.addEventListener('click', () => {
   state.markers[state.currentMarkerIndex].type = btn.dataset.type;
   updateMarkerStep();
 }));
