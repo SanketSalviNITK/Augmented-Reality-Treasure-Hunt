@@ -411,8 +411,10 @@ export default async function run(browser, baseUrl) {
     // The power-save overlay (z-index 850) visually sits above the AR HUD
     // (z-index 510), so #btn-stop-ar is genuinely hit-tested underneath it
     // while paused — not the bug under test here (overlay cleanup on stop),
-    // so force the click through it rather than resuming first.
-    await page.click('#btn-stop-ar', { force: true });
+    // so dispatch the click directly on the button rather than resuming
+    // first (a real mouse click, even with Playwright's `force`, would
+    // still be routed by the browser to the topmost overlay element).
+    await page.evaluate(() => document.getElementById('btn-stop-ar').click());
     await page.waitForFunction(() => {
       const el = document.getElementById('power-save-overlay');
       return el && getComputedStyle(el).display === 'none';
