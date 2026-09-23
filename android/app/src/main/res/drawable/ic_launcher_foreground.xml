@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Simple gem glyph, kept inside the adaptive-icon safe zone (centered ~66dp circle). -->
+    <path
+        android:fillColor="#A78BFA"
+        android:pathData="M54,24 L80,46 L54,86 L28,46 Z" />
+    <path
+        android:fillColor="#06B6D4"
+        android:pathData="M54,24 L66,46 L54,86 L42,46 Z" />
+    <path
+        android:strokeColor="#050508"
+        android:strokeWidth="2"
+        android:strokeLineJoin="round"
+        android:pathData="M28,46 L80,46" />
+</vector>

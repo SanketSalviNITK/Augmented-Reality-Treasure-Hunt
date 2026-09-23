@@ -1,0 +1,10 @@
+<resources>
+    <!-- Content is entirely Jetpack Compose; this just satisfies the
+         platform's requirement for a window theme (splash background /
+         status bar) before ArtHuntTheme takes over. -->
+    <style name="Theme.ARTHunt" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/art_background</item>
+        <item name="android:statusBarColor">@color/art_background</item>
+        <item name="android:navigationBarColor">@color/art_background</item>
+    </style>
+</resources>

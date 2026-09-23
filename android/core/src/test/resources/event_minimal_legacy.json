@@ -1,0 +1,17 @@
+{
+  "name": "Old Orientation Hunt",
+  "markers": [
+    {
+      "type": "model",
+      "scale": 0.5,
+      "imageUrl": "https://xyzcompany.supabase.co/storage/v1/object/public/ar-assets/markers/legacy1.jpg",
+      "modelUrl": "library:coin"
+    },
+    {
+      "type": "model",
+      "scale": 0.5,
+      "imageUrl": "https://xyzcompany.supabase.co/storage/v1/object/public/ar-assets/markers/legacy2.jpg",
+      "modelUrl": "library:gem"
+    }
+  ]
+}

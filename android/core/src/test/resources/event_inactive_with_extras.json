@@ -1,0 +1,40 @@
+{
+  "name": "Archived Pilot Study",
+  "status": "inactive",
+  "timeLimit": 0,
+  "theme": "minimalist",
+  "experimentId": "PILOT-2025-11",
+  "researcherNotes": "Ran during orientation week; keep for the SoftwareX writeup.",
+  "markers": [
+    {
+      "type": "text",
+      "scale": 0.5,
+      "color": "#06b6d4",
+      "text": "Nice work, researcher!",
+      "hint": "Ask the front desk.",
+      "imageUrl": "https://xyzcompany.supabase.co/storage/v1/object/public/ar-assets/markers/m1.jpg",
+      "customField": "kept-even-though-unknown"
+    }
+  ],
+  "settings": {
+    "silentDashcam": false,
+    "mandatoryConsent": true,
+    "anonymizeHunters": true,
+    "randomizedPathing": false,
+    "telemetryFrequency": 500
+  },
+  "players": [
+    {
+      "name": "Charlie",
+      "age": "45",
+      "detectedMarkers": [1],
+      "customPath": [0],
+      "startTime": 1759000000000,
+      "endTime": 1759000600000,
+      "avatarId": 33,
+      "hintsUsed": 2,
+      "consentGiven": true,
+      "capturedPhotos": []
+    }
+  ]
+}

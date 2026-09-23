@@ -3,8 +3,16 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// Target JVM 17 bytecode without pinning an exact toolchain JDK: the Kotlin
+// compiler can target down-level bytecode from any JDK >= 17 that runs
+// Gradle itself (CI pins the running JDK to temurin 17 via setup-java; a
+// local JDK 21, as in this sandbox, works the same way). Avoids requiring
+// Gradle's toolchain auto-provisioning/download, which this sandbox's
+// network policy does not allow.
 kotlin {
-    jvmToolchain(17)
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
 }
 
 java {
