@@ -4,3 +4,11 @@ node_modules/
 /overleaf/
 /drafts/
 /manuscript/
+
+# Android / Gradle
+android/.gradle/
+android/build/
+android/*/build/
+android/local.properties
+.idea/
+*.iml
