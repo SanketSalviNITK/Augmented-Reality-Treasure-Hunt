@@ -3,7 +3,7 @@
    gates, AR start/stop via Back, deep links, and soft reset.
    ============================================================ */
 
-import { newPage, waitStart, Reporter, sleep } from './helpers.mjs';
+import { newPage, waitStart, clickStart, Reporter, sleep } from './helpers.mjs';
 
 function seedEvent() {
   const db = {
@@ -32,6 +32,7 @@ function seedEvent() {
 }
 
 async function enterHunterPortal(page) {
+  await clickStart(page);
   await page.click('#btn-enter-hunter');
   await page.waitForFunction(() => {
     const el = document.getElementById('setup-screen');

@@ -57,6 +57,7 @@ export async function startAR() {
 
       const buffer = await compiler.exportData();
       state.compiledBuffer = buffer;
+      releaseCompiledBlob();
       state.compiledBlobUrl = URL.createObjectURL(new Blob([buffer]));
       console.log("Compilation complete. Compiled data ready.");
     }
@@ -218,17 +219,14 @@ async function initARSession() {
           
           console.log(`Progress: ${currentCount} / ${state.markers.length}`);
 
-          // Sync to DB immediately for EVERY marker found
-          import('./db.js').then(({ updateEventInDB }) => {
-            const ev = state.events.find(e => e.id === state.activeEventId);
-            if (ev) {
-              const pIdx = ev.players.findIndex(p => p.name === state.activePlayerRecord.name);
-              if (pIdx !== -1) {
-                ev.players[pIdx] = state.activePlayerRecord; // Ensure DB object has latest stats
-                updateEventInDB(ev.id, ev);
-              }
-            }
-          }).catch(err => console.error("DB sync failed", err));
+          // Sync this player's record for EVERY marker found. Runs after the
+          // handler finishes, so a completion endTime set below is included.
+          if (state.activeEventId) {
+            const eventId = state.activeEventId;
+            const record = state.activePlayerRecord;
+            import('./db.js').then(({ updatePlayerInDB }) => updatePlayerInDB(eventId, record))
+              .catch(err => console.error("DB sync failed", err));
+          }
 
           // Play Scan Sound
           if (state.audioEnabled) {
@@ -266,17 +264,13 @@ async function initARSession() {
             // Play Victory Sound
             if (state.audioEnabled) {
               const victorySfx = document.getElementById('sfx-victory');
-              if (victorySfx) victorySfx.play();
+              if (victorySfx) victorySfx.play().catch(err => console.log("Audio play failed:", err));
             }
 
             // HCI: Track completion time for leaderboard persistence
+            // (persisted by the per-scan player sync above).
             if (state.activePlayerRecord && !state.activePlayerRecord.endTime) {
               state.activePlayerRecord.endTime = Date.now();
-              // One final sync for the end time
-              import('./db.js').then(({ updateEventInDB }) => {
-                const ev = state.events.find(e => e.id === state.activeEventId);
-                if (ev) updateEventInDB(ev.id, ev);
-              });
             }
 
             setTimeout(() => {
@@ -339,18 +333,30 @@ export function stopAR() {
   // Clear mixers and clocks
   state.mixers = [];
   
-  // Hide overlays
+  // Hide overlays (including the power-saver screen, which would otherwise
+  // stay over the post-hunt screens if the hunt ends while paused)
   $('#quest-complete-overlay').style.display = 'none';
   $('#quest-finished-status').style.display = 'none';
-  
-  document.querySelectorAll('video').forEach(v => { 
-    if (v.srcObject) { 
-      v.srcObject.getTracks().forEach(t => t.stop()); 
-      v.srcObject = null; 
-    } 
+  $('#power-save-overlay').style.display = 'none';
+
+  document.querySelectorAll('video').forEach(v => {
+    if (v.srcObject) {
+      v.srcObject.getTracks().forEach(t => t.stop());
+      v.srcObject = null;
+    }
   });
-  
+
   $('#ar-container').innerHTML = '';
+  releaseCompiledBlob();
+}
+
+// Free the in-memory compiled-marker blob (not needed once the session
+// stops; the next startAR recompiles or uses the precompiled URL).
+function releaseCompiledBlob() {
+  if (state.compiledBlobUrl && state.compiledBlobUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(state.compiledBlobUrl);
+  }
+  state.compiledBlobUrl = null;
 }
 
 export function pauseAR() {

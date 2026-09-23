@@ -8,7 +8,7 @@ import { initCrop, setupCropperEvents } from './js/cropper.js';
 import { startAR, stopAR, pauseAR, resumeAR, captureARImage } from './js/ar-engine.js';
 
 import * as THREE from 'three';
-import { saveEventToDB, getEventsFromDB, deleteEventFromDB, updateEventInDB, saveFeedbackToDB, getFeedbackFromDB, uploadBase64Image, logTelemetry, getTelemetryRows } from './js/db.js';
+import { saveEventToDB, getEventsFromDB, deleteEventFromDB, updatePlayerInDB, patchEventInDB, saveFeedbackToDB, getFeedbackFromDB, uploadBase64Image, logTelemetry, getTelemetryRows } from './js/db.js';
 import { initLandingAnimation, stopLandingAnimation } from './js/landing.js';
 import { parseDeepLinkEventId, buildEventShareLink, resolveBackAction } from './js/navigation.js';
 import { ASSET_LIBRARY, LIBRARY_SCHEME, isLibraryUrl } from './js/asset-library.js';
@@ -311,7 +311,9 @@ async function enterHuntFromDeepLink(eventId) {
     console.error('Deep-link event load failed:', err);
   }
 
-  const idx = (state.events || []).findIndex(e => String(e.id) === String(eventId));
+  // Archived events are hidden from the browse list, so a stale share link
+  // to one must not bypass that.
+  const idx = (state.events || []).findIndex(e => String(e.id) === String(eventId) && e.status !== 'inactive');
   renderPlayerDashboard();
   showPanel(sections.playerDashboard);
 
@@ -398,6 +400,7 @@ $('#welcome-3d-container').style.display = 'none';
 function resetToPortal() {
   // Tear down any live AR session / timers / overlays
   try { stopAR(); } catch (_) { /* not running */ }
+  resetCameraToggle();
   if (questTimerInterval) { clearInterval(questTimerInterval); questTimerInterval = null; }
   [
     'consent-overlay', 'identity-overlay', 'quest-complete-overlay', 'times-up-overlay',
@@ -627,14 +630,19 @@ $('#btn-admin-login').addEventListener('click', async () => {
 });
 
 $('#btn-create-event').addEventListener('click', () => {
+  // Seed the form with the Settings panel's "Global Countdown Limit",
+  // which promises to be the default for newly drafted quests.
+  const defaultLimit = (state.settings && Number.isFinite(state.settings.globalQuestTimer)) ? state.settings.globalQuestTimer : 0;
   state.eventName = '';
   state.markerCount = 1;
-  state.timeLimit = 0;
+  state.markers = []; // a new draft must not inherit the previous event's markers
+  state.compiledBuffer = null;
+  state.timeLimit = defaultLimit;
   state.theme = 'standard';
   state.floorPlan = null;
   $('#event-name').value = '';
   $('#marker-count').value = 1;
-  $('#time-limit').value = 0;
+  $('#time-limit').value = defaultLimit;
   $('#event-theme').value = 'standard';
   $('#btn-confirm-count').disabled = true;
   showPanel(sections.adminCount);
@@ -1086,18 +1094,18 @@ window.exportEventCSV = (index) => {
       score
     ];
 
-    // Calculate time to each marker
+    // Time to each marker = time since the PREVIOUS scan in the order the
+    // hunter actually found them (paths are usually randomized), using each
+    // marker's first dashcam capture. `photos` is already chronological.
+    const timeToMarker = {};
     let lastTime = p.startTime || null;
+    photos.filter(ph => ph.type === 'dashcam').forEach(ph => {
+      if (timeToMarker[ph.marker] !== undefined) return; // first capture only
+      timeToMarker[ph.marker] = lastTime ? ph.timestamp - lastTime : 'N/A';
+      lastTime = ph.timestamp;
+    });
     for (let i = 1; i <= totalMarkers; i++) {
-      // Find the earliest dashcam for this marker
-      const markerPhoto = photos.find(ph => ph.marker === i && ph.type === 'dashcam');
-      if (markerPhoto && lastTime) {
-        const timeDiff = markerPhoto.timestamp - lastTime;
-        row.push(timeDiff);
-        lastTime = markerPhoto.timestamp; // update lastTime to current marker time
-      } else {
-        row.push("N/A");
-      }
+      row.push(timeToMarker[i] !== undefined ? timeToMarker[i] : "N/A");
     }
 
     csv += row.map(csvField).join(',') + "\n";
@@ -1118,7 +1126,7 @@ window.exportEventCSV = (index) => {
 window.toggleEventStatus = async (index) => {
   const ev = state.events[index];
   ev.status = (ev.status === 'inactive') ? 'active' : 'inactive';
-  if (ev.id) await updateEventInDB(ev.id, ev);
+  if (ev.id) await patchEventInDB(ev.id, { status: ev.status });
   renderAdminDashboard();
 };
 
@@ -1126,7 +1134,7 @@ window.resetEventPlayers = async (index) => {
   const ev = state.events[index];
   if (confirm(`Are you sure you want to RESET all player data for "${ev.name}"? This will delete all scores, times, and photos permanently so you can run a new study.`)) {
     ev.players = [];
-    if (ev.id) await updateEventInDB(ev.id, ev);
+    if (ev.id) await patchEventInDB(ev.id, { players: [] });
     renderAdminDashboard();
   }
 };
@@ -1188,6 +1196,24 @@ window.joinEvent = async (index) => {
     state.player = identity;
   }
 
+  // A returning hunter whose hunt is already over (all markers found, or the
+  // time limit has run out) sees the results instead of being dropped into
+  // an AR session that would immediately end with "Time's Up".
+  let playerRecord = ev.players.find(p => p.name === state.player.name);
+  if (playerRecord) {
+    const total = ev.markers ? ev.markers.length : 0;
+    const found = playerRecord.detectedMarkers ? playerRecord.detectedMarkers.length : 0;
+    const limitMs = (ev.timeLimit || 0) * 60000;
+    const expired = limitMs > 0 && playerRecord.startTime && (Date.now() - playerRecord.startTime) >= limitMs;
+    if ((total > 0 && found >= total) || expired) {
+      toast(found >= total ? "You've already completed this hunt — here are the standings." : "Time's up for this hunt — here are the final standings.", { type: 'info' });
+      state.activePlayerRecord = playerRecord;
+      state.activeEventId = ev.id;
+      window.showPostHuntLeaderboard();
+      return;
+    }
+  }
+
   // 2. Gate on informed consent BEFORE writing anything to the DB.
   if (state.settings && state.settings.mandatoryConsent !== false) {
     const consented = await requireConsent();
@@ -1195,7 +1221,6 @@ window.joinEvent = async (index) => {
   }
 
   // Find or create player record
-  let playerRecord = ev.players.find(p => p.name === state.player.name);
   if (!playerRecord) {
     // Generate sequential or randomized path (depending on setting)
     const markerCount = ev.markers.length;
@@ -1224,11 +1249,14 @@ window.joinEvent = async (index) => {
       avatarId: Math.floor(Math.random() * 50) + 1 // Assign random avatar 1-50
     };
     ev.players.push(playerRecord);
-    await updateEventInDB(ev.id, ev);
-  } else if (!playerRecord.startTime) {
-    playerRecord.startTime = Date.now();
+    await updatePlayerInDB(ev.id, playerRecord);
+  } else if (!playerRecord.startTime || playerRecord.endTime) {
+    // Missing start (legacy record) or an unfinished hunt the player exited
+    // early: resume it, keeping progress and the original start time.
+    if (!playerRecord.startTime) playerRecord.startTime = Date.now();
+    delete playerRecord.endTime;
     if (!playerRecord.avatarId) playerRecord.avatarId = Math.floor(Math.random() * 50) + 1;
-    await updateEventInDB(ev.id, ev);
+    await updatePlayerInDB(ev.id, playerRecord);
   }
 
   state.activePlayerRecord = playerRecord;
@@ -1322,7 +1350,7 @@ $('#btn-use-hint').addEventListener('click', async () => {
     logTelemetry(state.activeEventId, state.activePlayerRecord.name, 'hint', markerNumber);
   }
 
-  if (ev) await updateEventInDB(ev.id, ev);
+  if (state.activeEventId) await updatePlayerInDB(state.activeEventId, state.activePlayerRecord);
 });
 
 let questTimerInterval = null;
@@ -1364,13 +1392,13 @@ window.startQuestTimer = () => {
 
 function handleTimesUp() {
   stopAR();
+  resetCameraToggle();
   $('#times-up-overlay').style.display = 'flex';
 
   // Save end time
   if (state.activePlayerRecord && !state.activePlayerRecord.endTime) {
     state.activePlayerRecord.endTime = Date.now();
-    const ev = state.events.find(e => e.id === state.activeEventId);
-    if (ev) updateEventInDB(ev.id, ev);
+    if (state.activeEventId) updatePlayerInDB(state.activeEventId, state.activePlayerRecord);
   }
 
   // Auto redirect after 4 seconds
@@ -1424,6 +1452,15 @@ const toggleCam = async () => {
     await resumeAR();
   }
 };
+
+// Called whenever an AR session ends, so a hunt that ends while paused
+// doesn't leave the power-saver overlay/icon behind for the next session.
+function resetCameraToggle() {
+  isCameraPaused = false;
+  $('#icon-cam-on').style.display = 'block';
+  $('#icon-cam-off').style.display = 'none';
+  $('#power-save-overlay').style.display = 'none';
+}
 
 $('#btn-toggle-camera').addEventListener('click', toggleCam);
 $('#btn-resume-camera').addEventListener('click', toggleCam);
@@ -1804,9 +1841,11 @@ function startMarkerConfig() {
   state.timeLimit = parseInt($('#time-limit').value) || 0;
   state.theme = $('#event-theme').value || 'standard';
   state.currentMarkerIndex = 0;
-  state.markers = Array.from({ length: state.markerCount }, () => ({
-    type: 'model', scale: 0.5, color: '#a78bfa'
-  }));
+  // Keep markers already configured in this draft (the creator may have gone
+  // Back to tweak the time limit or theme); only add/trim to the new count.
+  const existing = Array.isArray(state.markers) ? state.markers : [];
+  state.markers = Array.from({ length: state.markerCount }, (_, i) =>
+    existing[i] || { type: 'model', scale: 0.5, color: '#a78bfa' });
   updateMarkerStep();
   showPanel(sections.config);
 }
@@ -2159,6 +2198,7 @@ $('#btn-test-ar').addEventListener('click', () => {
 
 $('#btn-stop-ar').addEventListener('click', () => {
   stopAR();
+  resetCameraToggle();
   sections.ar.style.display = 'none';
   sections.setup.style.display = '';
 
@@ -2170,8 +2210,7 @@ $('#btn-stop-ar').addEventListener('click', () => {
     if (questTimerInterval) clearInterval(questTimerInterval);
     if (state.activePlayerRecord && !state.activePlayerRecord.endTime) {
       state.activePlayerRecord.endTime = Date.now();
-      const ev = state.events.find(e => e.id === state.activeEventId);
-      if (ev) updateEventInDB(ev.id, ev);
+      if (state.activeEventId) updatePlayerInDB(state.activeEventId, state.activePlayerRecord);
     }
 
     // Check if #quest-complete-overlay is visible and hide it if so
@@ -2297,14 +2336,7 @@ window.handleDashcamPhoto = async (dataUrl, markerNumber) => {
     type: 'dashcam'
   });
 
-  const ev = state.events.find(e => e.id === state.activeEventId);
-  if (ev) {
-    const pIdx = ev.players.findIndex(p => p.name === state.activePlayerRecord.name);
-    if (pIdx !== -1) {
-      ev.players[pIdx] = state.activePlayerRecord;
-      updateEventInDB(ev.id, ev); // Background sync
-    }
-  }
+  if (state.activeEventId) updatePlayerInDB(state.activeEventId, state.activePlayerRecord); // Background sync
 };
 
 // Selfie Mode Trigger
@@ -2358,14 +2390,7 @@ $('#btn-photo-post').addEventListener('click', async () => {
       type: 'selfie'
     });
 
-    const ev = state.events.find(e => e.id === state.activeEventId);
-    if (ev) {
-      const pIdx = ev.players.findIndex(p => p.name === state.activePlayerRecord.name);
-      if (pIdx !== -1) {
-        ev.players[pIdx] = state.activePlayerRecord;
-        await updateEventInDB(ev.id, ev);
-      }
-    }
+    if (state.activeEventId) await updatePlayerInDB(state.activeEventId, state.activePlayerRecord);
   }
 
   btn.textContent = originalText;

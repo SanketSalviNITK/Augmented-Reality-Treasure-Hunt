@@ -6,7 +6,7 @@
   "scripts": {
     "start": "serve .",
     "test": "npm run test:unit && npm run test:e2e",
-    "test:unit": "node --test tests/unit/",
+    "test:unit": "node --test tests/unit/*.test.mjs",
     "test:e2e": "node tests/e2e/run-all.mjs"
   },
   "dependencies": {

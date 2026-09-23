@@ -17,9 +17,14 @@ async function getMarkerPos(page, index = 0) {
 }
 
 async function clickAtPercent(page, selector, xPct, yPct) {
-  const box = await page.locator(selector).boundingBox();
+  const locator = page.locator(selector);
+  await locator.scrollIntoViewIfNeeded();
+  const box = await locator.boundingBox();
   if (!box) throw new Error(`No bounding box for ${selector}`);
-  await page.mouse.click(box.x + box.width * xPct, box.y + box.height * yPct);
+  // Position is relative to the element itself, so Playwright's own
+  // auto-scroll-into-view keeps the click on-screen regardless of the
+  // element's absolute page coordinates (it can sit below the viewport).
+  await locator.click({ position: { x: box.width * xPct, y: box.height * yPct } });
 }
 
 export default async function run(browser, baseUrl) {

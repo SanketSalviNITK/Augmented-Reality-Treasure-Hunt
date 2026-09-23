@@ -217,10 +217,20 @@ export async function waitStart(page, base, query = '?demo=1') {
   }, { timeout: 15000 });
 }
 
+// Click the Start button and wait out its fade so the (still-clickable
+// until then) loading overlay stops intercepting pointer events.
+export async function clickStart(page) {
+  await page.click('#btn-start-experience');
+  await page.waitForFunction(() => {
+    const el = document.getElementById('loading-overlay');
+    return !el || getComputedStyle(el).display === 'none';
+  }, { timeout: 5000 });
+}
+
 // Click through Start -> Enter Studio -> Admin Login. Assumes the page has
 // already been navigated (waitStart) so #btn-start-experience is visible.
 export async function adminLogin(page) {
-  await page.click('#btn-start-experience');
+  await clickStart(page);
   await page.waitForTimeout(300);
   await page.click('#btn-enter-creator');
   await page.waitForTimeout(900); // 600ms setup-screen transition + margin

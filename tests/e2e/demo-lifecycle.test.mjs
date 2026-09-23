@@ -5,7 +5,7 @@
    db.js, and the post-hunt leaderboard + demo badge show up.
    ============================================================ */
 
-import { newPage, waitStart, adminLogin, markerImageFile, Reporter, sleep } from './helpers.mjs';
+import { newPage, waitStart, clickStart, adminLogin, markerImageFile, Reporter, sleep } from './helpers.mjs';
 
 export default async function run(browser, baseUrl) {
   const r = new Reporter('demo-lifecycle');
@@ -41,6 +41,7 @@ export default async function run(browser, baseUrl) {
   await waitStart(page, baseUrl);
   r.check('#demo-badge present after reload', await page.evaluate(() => !!document.getElementById('demo-badge')));
 
+  await clickStart(page);
   await page.click('#btn-enter-hunter');
   await page.waitForFunction(() => {
     const el = document.getElementById('setup-screen');

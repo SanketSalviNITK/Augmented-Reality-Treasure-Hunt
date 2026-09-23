@@ -63,16 +63,25 @@ function handleMove(e) {
     state.cropPos.x = Math.max(0, Math.min(600 - state.cropPos.w, startPos.x + dx));
     state.cropPos.y = Math.max(0, Math.min(600 - state.cropPos.h, startPos.y + dy));
   } else if (isResizing) {
-    if (currentHandle === 'br') {
-      state.cropPos.w = Math.max(50, Math.min(600 - startPos.x, startPos.w + dx));
-      state.cropPos.h = Math.max(50, Math.min(600 - startPos.y, startPos.h + dy));
-    } else if (currentHandle === 'tl') {
+    // Each corner handle moves one horizontal and one vertical edge;
+    // the opposite edges stay anchored. Minimum box size is 50px.
+    const movesLeft = currentHandle === 'tl' || currentHandle === 'bl';
+    const movesTop = currentHandle === 'tl' || currentHandle === 'tr';
+
+    if (movesLeft) {
       const newX = Math.max(0, Math.min(startPos.x + startPos.w - 50, startPos.x + dx));
-      state.cropPos.w = startPos.w + (startPos.x - newX); 
+      state.cropPos.w = startPos.w + (startPos.x - newX);
       state.cropPos.x = newX;
+    } else {
+      state.cropPos.w = Math.max(50, Math.min(600 - startPos.x, startPos.w + dx));
+    }
+
+    if (movesTop) {
       const newY = Math.max(0, Math.min(startPos.y + startPos.h - 50, startPos.y + dy));
-      state.cropPos.h = startPos.h + (startPos.y - newY); 
+      state.cropPos.h = startPos.h + (startPos.y - newY);
       state.cropPos.y = newY;
+    } else {
+      state.cropPos.h = Math.max(50, Math.min(600 - startPos.y, startPos.h + dy));
     }
   }
   updateCropUI();

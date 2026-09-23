@@ -3,10 +3,20 @@ import * as THREE from 'three';
 let animationFrameId;
 let isActive = true;
 let resizeHandler = null;
+let hoverListeners = null; // AbortController for the panel hover handlers
+let activeRenderer = null; // released on re-init (browsers cap WebGL contexts)
 
 export function initLandingAnimation() {
   const container = document.getElementById('canvas-container');
   if (!container) return;
+
+  // Tear down the previous scene: stop its render loop and release its GL context.
+  if (animationFrameId) cancelAnimationFrame(animationFrameId);
+  if (activeRenderer) {
+    activeRenderer.dispose();
+    activeRenderer.forceContextLoss();
+    activeRenderer = null;
+  }
   container.innerHTML = '';
 
   const scene = new THREE.Scene();
@@ -19,6 +29,7 @@ export function initLandingAnimation() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   container.appendChild(renderer.domElement);
+  activeRenderer = renderer;
 
   const isMobile = window.innerWidth <= 768;
   const avatarOffset = isMobile ? 3 : 6;
@@ -113,6 +124,11 @@ export function initLandingAnimation() {
   const panelCreator = document.getElementById('panel-creator');
   const panelHunter = document.getElementById('panel-hunter');
 
+  // Each init closes over a new scene, so drop the previous init's handlers.
+  if (hoverListeners) hoverListeners.abort();
+  hoverListeners = new AbortController();
+  const { signal } = hoverListeners;
+
   if (panelCreator) {
     panelCreator.addEventListener('mouseenter', () => {
       targetCreatorScale = 1.25;
@@ -124,7 +140,7 @@ export function initLandingAnimation() {
       }
       targetCameraZ = 10;
       creatorLight.intensity = 5;
-    });
+    }, { signal });
     panelCreator.addEventListener('mouseleave', () => {
       targetCreatorScale = 1;
       targetHunterScale = 1;
@@ -132,7 +148,7 @@ export function initLandingAnimation() {
       targetCameraY = 0;
       targetCameraZ = 12;
       creatorLight.intensity = 2;
-    });
+    }, { signal });
   }
 
   if (panelHunter) {
@@ -146,7 +162,7 @@ export function initLandingAnimation() {
       }
       targetCameraZ = 10;
       hunterLight.intensity = 5;
-    });
+    }, { signal });
     panelHunter.addEventListener('mouseleave', () => {
       targetHunterScale = 1;
       targetCreatorScale = 1;
@@ -154,7 +170,7 @@ export function initLandingAnimation() {
       targetCameraY = 0;
       targetCameraZ = 12;
       hunterLight.intensity = 2;
-    });
+    }, { signal });
   }
 
   const clock = new THREE.Clock();

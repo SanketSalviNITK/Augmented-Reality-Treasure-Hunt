@@ -163,6 +163,54 @@ export async function updateEventInDB(eventId, fullEventData) {
   if (error) console.error('Error updating event:', error);
 }
 
+async function fetchEventData(eventId) {
+  const { data, error } = await supabaseClient
+    .from('events')
+    .select('*')
+    .eq('id', eventId);
+  if (error) throw new Error(error.message || 'Event fetch failed');
+  if (!data || !data[0]) throw new Error('Event not found');
+  return data[0].data || {};
+}
+
+// Save ONE player's record by merging it into the latest copy of the event,
+// instead of writing back this client's (possibly seconds-stale) snapshot of
+// every player. Concurrent hunters then only race in the short fetch→write
+// window rather than clobbering each other's progress. Upserts by name, so a
+// player removed by an admin reset mid-hunt is re-added rather than dropped.
+export async function updatePlayerInDB(eventId, playerRecord) {
+  ensureClient();
+  try {
+    const fresh = await fetchEventData(eventId);
+    const players = Array.isArray(fresh.players) ? fresh.players : [];
+    const i = players.findIndex(p => p.name === playerRecord.name);
+    if (i === -1) players.push(playerRecord); else players[i] = playerRecord;
+    const { error } = await supabaseClient
+      .from('events')
+      .update({ data: { ...fresh, players } })
+      .eq('id', eventId);
+    if (error) console.error('Error updating player:', error);
+  } catch (err) {
+    console.error('Error updating player:', err);
+  }
+}
+
+// Merge top-level fields (e.g. status, players) into the latest copy of the
+// event, so admin actions never overwrite hunters' concurrent progress.
+export async function patchEventInDB(eventId, patch) {
+  ensureClient();
+  try {
+    const fresh = await fetchEventData(eventId);
+    const { error } = await supabaseClient
+      .from('events')
+      .update({ data: { ...fresh, ...patch } })
+      .eq('id', eventId);
+    if (error) console.error('Error patching event:', error);
+  } catch (err) {
+    console.error('Error patching event:', err);
+  }
+}
+
 export async function deleteEventFromDB(eventId) {
   ensureClient();
   const { error } = await supabaseClient
