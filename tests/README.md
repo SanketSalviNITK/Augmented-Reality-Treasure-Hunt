@@ -122,6 +122,27 @@ removed from the DOM after its duration) and the printable hunt kit
 (`window.printEventKit(index)` opens a popup containing an SVG QR code and
 the event name).
 
+**`tests/e2e/regressions.test.mjs`** — one isolated case (fresh page/context
+each) per just-fixed bug: (1) `startMarkerConfig` keeps a draft's
+already-configured markers across Back → Continue, but `#btn-create-event`
+still starts a brand-new draft with an empty `markers` array; (2)
+`updatePlayerInDB`/`patchEventInDB` (`js/db.js`) merge into the latest copy
+of an event instead of clobbering concurrent writers — two players'
+concurrent saves both survive, and a `status` patch never drops `players`;
+(3) rejoining a hunt the player already completed lands on the post-hunt
+leaderboard instead of restarting AR, with no consent prompt; (4) rejoining
+a hunt the player exited early (an `endTime` but not all markers found)
+resumes it — AR starts and the saved record no longer carries `endTime`;
+(5) a deep link (`?event=<id>`) to an archived (`status: 'inactive'`) event
+is rejected with a toast instead of silently joining; (6) all four
+`js/cropper.js` resize handles (`tl`/`tr`/`bl`/`br`) actually resize
+`state.cropPos`, dragged via `page.mouse`; (7) the wizard seeds `#time-limit`
+from `state.settings.globalQuestTimer`; (8) the power-saver overlay
+(`#power-save-overlay`) is cleared by `#btn-stop-ar`, not just by resuming
+the camera — clicked via a direct DOM `.click()` since the overlay's
+z-index legitimately sits above the AR HUD and would otherwise intercept a
+real mouse click at that point, which isn't the behavior under test.
+
 ## A note on `npm run test:unit`
 
 Node's `--test` flag does not do directory-recursion when given an explicit

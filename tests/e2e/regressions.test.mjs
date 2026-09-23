@@ -322,6 +322,9 @@ export default async function run(browser, baseUrl) {
     const file = await markerImageFile(page, 'marker.png');
     await page.setInputFiles('#marker-file-input', file);
     await page.waitForSelector('#step-crop.active', { timeout: 5000 });
+    // Panels slide in (fadeSlideIn, 0.5s); measuring handle positions mid-
+    // animation makes the first drag miss its handle.
+    await page.waitForFunction(() => document.getAnimations().every(a => a.playState !== 'running'), null, { timeout: 5000 });
 
     const handles = [
       { cls: 'tl', dx: -40, dy: -40 },
