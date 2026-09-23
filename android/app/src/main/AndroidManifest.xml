@@ -7,7 +7,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <!-- ARCore is optional: the app installs and the Creator Studio (non-AR
-         features) works fine on phones that don't support it -- see
+         features) works fine on phones that don't support it; see
          docs/ANDROID_ARCHITECTURE.md §1 ("ar_optional"). -->
     <uses-feature
         android:name="android.hardware.camera.ar"
