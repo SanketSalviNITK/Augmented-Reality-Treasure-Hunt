@@ -18,6 +18,7 @@ const SUITE_FILES = [
   'floorplan.test.mjs',
   'demo-lifecycle.test.mjs',
   'ui-smoke.test.mjs',
+  'regressions.test.mjs',
 ];
 
 async function main() {
