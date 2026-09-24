@@ -2,6 +2,7 @@ package com.arthunt.core.fake
 
 import com.arthunt.core.model.EventData
 import com.arthunt.core.model.EventRow
+import com.arthunt.core.model.Player
 import com.arthunt.core.repo.EventRepository
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -36,5 +37,15 @@ class FakeEventRepository(seed: List<EventRow> = emptyList()) : EventRepository 
     override suspend fun update(id: String, data: EventData) {
         val existing = rows[id] ?: return
         rows[id] = existing.copy(data = data)
+    }
+
+    // ConcurrentHashMap#compute locks the map's bin for `id` for the whole
+    // call, so two concurrent updatePlayer calls for the *same* event (even
+    // for different players) never race on a read-modify-write of `rows[id]`
+    // -- each fully applies before the next one reads.
+    override suspend fun updatePlayer(eventId: String, player: Player) {
+        rows.compute(eventId) { _, existing ->
+            existing?.copy(data = existing.data.withPlayer(player))
+        }
     }
 }

@@ -122,6 +122,7 @@ private fun ArthuntNavHost(container: AppContainer, pendingEventId: State<String
         ) { entry ->
             HunterScreen(
                 eventId = entry.arguments?.getString("eventId"),
+                container = container,
                 onBack = { navController.popBackStack() },
             )
         }
