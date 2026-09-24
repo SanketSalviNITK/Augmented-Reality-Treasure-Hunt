@@ -16,6 +16,13 @@
         android:name="android.hardware.camera"
         android:required="false" />
 
+    <!-- SceneView/Filament (glTF + AR rendering, M1 AR hunt screen) needs
+         OpenGL ES 3.0; effectively every minSdk-24+ device has it, but this
+         keeps Play Store device filtering honest. See ar/README.md. -->
+    <uses-feature
+        android:glEsVersion="0x00030000"
+        android:required="true" />
+
     <application
         android:name=".ArthuntApp"
         android:allowBackup="true"

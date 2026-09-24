@@ -9,6 +9,12 @@ navigation-compose = "2.8.5"
 lifecycle = "2.8.7"
 datastore-preferences = "1.1.1"
 arcore = "1.47.0"
+# ARCore Augmented Images + glTF rendering for the M1 AR hunt screen
+# (ui/ar/ArHuntScreen.kt, ar/RewardFactory.kt). 2.2.1 is the last SceneView
+# release built against Kotlin 1.9.24 / Compose UI 1.6.7 / ARCore 1.43.0 --
+# see android/app/src/main/java/com/arthunt/app/ar/README.md for why this
+# version was picked over the (much newer, Kotlin-2.2+-only) latest release.
+sceneview = "2.2.1"
 supabase-bom = "3.0.3"
 ktor = "3.0.3"
 junit5 = "5.11.3"
@@ -40,6 +46,7 @@ compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 arcore = { group = "com.google.ar", name = "core", version.ref = "arcore" }
+arsceneview = { group = "io.github.sceneview", name = "arsceneview", version.ref = "sceneview" }
 
 junit5-api = { group = "org.junit.jupiter", name = "junit-jupiter-api", version.ref = "junit5" }
 junit5-engine = { group = "org.junit.jupiter", name = "junit-jupiter-engine", version.ref = "junit5" }

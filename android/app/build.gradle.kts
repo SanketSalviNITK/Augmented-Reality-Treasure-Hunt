@@ -89,9 +89,11 @@ dependencies {
     implementation(libs.supabase.storage)
     implementation(libs.ktor.client.okhttp)
 
-    // Declared per docs/ANDROID_ARCHITECTURE.md §1/§6 for the AR milestones
-    // (M1+); unused by M0's screens.
+    // AR hunt screen (M1): ARCore Augmented Images + glTF/GLB rendering via
+    // SceneView/Filament. See android/app/src/main/java/com/arthunt/app/ar/README.md
+    // and docs/ANDROID_ARCHITECTURE.md §1/§5.
     implementation(libs.arcore)
+    implementation(libs.arsceneview)
 
     testImplementation(kotlin("test"))
     androidTestImplementation(libs.androidx.core.ktx)
